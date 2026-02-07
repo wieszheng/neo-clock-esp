@@ -31,6 +31,7 @@
 extern bool AP_MODE;
 
 // 系统配置
+extern bool EnableLiveview;
 extern int MATRIX_LAYOUT;
 extern uint8_t BRIGHTNESS;
 extern uint8_t MATRIX_FPS;
@@ -92,4 +93,32 @@ extern int HUM_POSITION;
 extern int WEATHER_POSITION;
 extern int WIND_POSITION;
 
+
+// 传感器数据
+// 室内温湿度(来自DHT22传感器)
+extern float INDOOR_TEMP;
+extern float INDOOR_HUM;
+
+// 室外温湿度(来自Weather API)
+extern float OUTDOOR_TEMP;
+extern float OUTDOOR_HUM;
+
+// Weather API 配置
+extern String WEATHER_API_KEY;
+extern String WEATHER_CITY;
+extern unsigned long WEATHER_UPDATE_INTERVAL; // 毫秒
+
+// 额外天气数据
+extern String CURRENT_WEATHER;
+extern String WEATHER_ICON;
+extern int WEATHER_PRESSURE;
+extern float WEATHER_WIND_SPEED;
+extern int WEATHER_WIND_DIR;
+extern unsigned long WEATHER_SUNRISE;
+extern unsigned long WEATHER_SUNSET;
+extern int WEATHER_COD;
+
+
+void saveSettings();
+void loadSettings();
 #endif

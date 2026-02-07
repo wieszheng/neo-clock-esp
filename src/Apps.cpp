@@ -187,3 +187,89 @@ void DateApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, 
         matrix->drawLine(xPos + x, y + 7, xPos + barWidth - 1 + x, y + 7, color);
     }
 }
+
+void TempApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, int16_t y, FastFramePlayer *player)
+{
+    CURRENT_APP = "Temperature";
+    DisplayManager.defaultTextColor();
+
+    player->loadUser("38863.anim");
+    player->play(x, y);
+
+    String text = String((int)std::round(INDOOR_TEMP)) + "°C";
+    uint16_t textWidth = getTextWidth(text.c_str(), true);
+    int16_t textX = ((23 - textWidth) / 2);
+
+    DisplayManager.printText(textX + 12, 6 + y, utf8ascii(text).c_str(), false, false);
+}
+
+void HumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, int16_t y, FastFramePlayer *player)
+{
+    CURRENT_APP = "Humidity";
+    DisplayManager.defaultTextColor();
+
+    player->loadUser("38865.anim");
+    player->play(x, y);
+
+    matrix->setCursor(14 + x, 6 + y);
+    matrix->print((int)INDOOR_HUM);
+    matrix->print("%");
+}
+
+void WeatherApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, int16_t y, FastFramePlayer *player)
+{
+    CURRENT_APP = "Weather";
+    DisplayManager.defaultTextColor();
+
+    String w = CURRENT_WEATHER;
+    w.toLowerCase();
+
+    const uint16_t *iconData = nullptr;
+
+    // 只在晴天时使用配置的图标
+    if (w.indexOf("rain") >= 0)
+    {
+        player->loadSystem(3);
+    }
+    else if (w.indexOf("cloud") >= 0 || w.indexOf("overcast") >= 0)
+    {
+        player->loadSystem(6);
+    }
+    else if (w.indexOf("snow") >= 0)
+    {
+        player->loadSystem(1);
+    }
+    else
+    {
+        // 晴天时，优先使用配置的图标
+        player->loadSystem(8);
+    }
+
+    player->play(x, y);
+
+    String text = String((int)std::round(OUTDOOR_TEMP)) + "°C";
+    uint16_t textWidth = getTextWidth(text.c_str(), true);
+    int16_t textX = ((23 - textWidth) / 2);
+
+    DisplayManager.printText(textX + 11, 6 + y, utf8ascii(text).c_str(), false, false);
+}
+
+void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x, int16_t y, FastFramePlayer *player)
+{
+    CURRENT_APP = "Wind";
+    DisplayManager.defaultTextColor();
+    // // 使用配置的图标，如果未配置则使用默认图标
+    // const uint16_t *iconData = getIconDataPtr(WIND_ICON);
+    // if (iconData == nullptr)
+    // {
+    //     iconData = ANIM_20013_DATA; // 默认图标
+    // }
+    player->loadUser("29266.anim");
+    player->play(x, y);
+
+    String text = String((int)std::round(WEATHER_WIND_SPEED)) + "m/s";
+    uint16_t textWidth = getTextWidth(text.c_str(), true);
+    int16_t textX = ((23 - textWidth) / 2);
+
+    DisplayManager.printText(textX + 8, 6 + y, utf8ascii(text).c_str(), false, true);
+}

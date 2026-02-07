@@ -1,12 +1,17 @@
 #include "DisplayManager.h"
+#include <ArduinoJson.h>
 #include "Apps.h"
 #include "Tools.h"
-#include <ArduinoJson.h>
+
 
 CRGB leds[NUM_LEDS];
 
 FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
 MatrixDisplayUi *ui = new MatrixDisplayUi(matrix);
+
+// Liveview 静态常量
+const char DisplayManager_::_LIVEVIEW_PREFIX[] = "LV:";
+
 
 DisplayManager_ &DisplayManager_::getInstance()
 {
@@ -23,12 +28,21 @@ void DisplayManager_::setup()
 
     // player.setMatrix(matrix);
 
+
     ui->setAppAnimation(SLIDE_DOWN);
     ui->setTargetFPS(MATRIX_FPS);
     ui->setTimePerApp(TIME_PER_APP);
     ui->setTimePerTransition(TIME_PER_TRANSITION);
     // ui->setOverlays(overlays, 4);
     ui->init();
+
+    // 初始化 Liveview
+    _liveviewLeds = leds;
+    _liveviewInterval = 250;
+    _liveviewLastUpdate = millis();
+    _liveviewCallback = nullptr;
+    _lastChecksum = 0;
+    memset(_liveviewBuffer, 0, sizeof(_liveviewBuffer));
 }
 
 void DisplayManager_::setBrightness(uint8_t bri)
@@ -100,6 +114,17 @@ void DisplayManager_::tick()
     {
         ui->update();
     }
+
+    // Liveview 循环处理
+    if (_liveviewInterval > 0 && (millis() - _liveviewLastUpdate) >= _liveviewInterval)
+    {
+        _liveviewLastUpdate = millis();
+        
+        if (_liveviewCallback != nullptr)
+        {
+            _fillLiveviewBuffer();
+        }
+    }
 }
 
 void DisplayManager_::clear()
@@ -169,10 +194,10 @@ void DisplayManager_::loadNativeApps()
 
     Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
     Apps.push_back({"date", DateApp, SHOW_DATE, DATE_POSITION, DATE_DURATION});
-    // Apps.push_back({"temp", TempApp, SHOW_TEMP, TEMP_POSITION, TEMP_DURATION});
-    // Apps.push_back({"hum", HumApp, SHOW_HUM, HUM_POSITION, HUM_DURATION});
-    // Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION, WEATHER_DURATION});
-    // Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
+    Apps.push_back({"temp", TempApp, SHOW_TEMP, TEMP_POSITION, TEMP_DURATION});
+    Apps.push_back({"hum", HumApp, SHOW_HUM, HUM_POSITION, HUM_DURATION});
+    Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION, WEATHER_DURATION});
+    Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
 
     std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b)
               { return a.position < b.position; });
@@ -243,3 +268,74 @@ void DisplayManager_::rightButton()
 {
     ui->nextApp();
 }
+
+void DisplayManager_::selectButton()
+{
+    // 目前没有特定功能，可以根据需要添加
+}
+
+// Liveview 公开方法实现
+void DisplayManager_::setLiveviewCallback(void (*func)(const char*, size_t))
+{
+    _liveviewCallback = func;
+}
+
+// Liveview 私有方法实现
+void DisplayManager_::_fillLiveviewBuffer()
+{
+    // 1. 设置头部
+    uint8_t* ptr = (uint8_t*)_liveviewBuffer;
+
+    // 写入前缀
+    memcpy(ptr, _LIVEVIEW_PREFIX, _LIVEVIEW_PREFIX_LENGTH);
+    ptr += _LIVEVIEW_PREFIX_LENGTH;
+
+    // 2. 填充 LED 数值 (直接写入字节，不转字符串)
+    for (int y = 0; y < MATRIX_HEIGHT; y++)
+    {
+        for (int x = 0; x < MATRIX_WIDTH; x++)
+        {
+            // 获取物理索引 (处理 ZigZag 排列)
+            int index = matrix->XY(x, y);
+
+            // 直接赋值，极快
+            *ptr++ = _liveviewLeds[index].r;
+            *ptr++ = _liveviewLeds[index].g;
+            *ptr++ = _liveviewLeds[index].b;
+        }
+    }
+
+    // 计算实际长度
+    size_t totalLen = ptr - (uint8_t*)_liveviewBuffer;
+
+    // 3. 计算 Checksum (对二进制数据计算，速度更快)
+    uint32_t newChecksum = _calculateCRC32((byte*)_liveviewBuffer, totalLen);
+    if (_lastChecksum != newChecksum)
+    {
+        _lastChecksum = newChecksum;
+        // 发送二进制数据
+        _liveviewCallback((const char*)_liveviewBuffer, totalLen);
+    }
+}
+
+uint32_t DisplayManager_::_calculateCRC32(byte* data, size_t length)
+{
+    uint32_t crc = 0xFFFFFFFF;
+    for (size_t i = 0; i < length; i++)
+    {
+        crc ^= data[i];
+        for (int j = 0; j < 8; j++)
+        {
+            if (crc & 1)
+            {
+                crc = (crc >> 1) ^ 0xEDB88320;
+            }
+            else
+            {
+                crc >>= 1;
+            }
+        }
+    }
+    return ~crc;
+}
+

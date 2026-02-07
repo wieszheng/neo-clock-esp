@@ -169,7 +169,7 @@ int MatrixDisplayUi::getNextAppNumber()
 }
 void MatrixDisplayUi::drawOverlays() {
     for (uint8_t i = 0; i < this->overlayCount; i++) {
-        (this->overlayFunctions[i])(this->matrix, &this->state);
+        (this->overlayFunctions[i])(this->matrix, &this->state, &player2);
     }
 }
 

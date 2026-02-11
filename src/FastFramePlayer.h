@@ -7,7 +7,6 @@
  *   - 移除 String _currentPath，改为 int _currentId 和 char _currentFile[32]
  *   - loadSystem: 整数比较防抖 (零开销)
  *   - loadUser:   C 字符串比较防抖 (无堆分配)
- *   - play:       将 play() 重命名为 draw() 以符合语义，并分离 tick 逻辑
  */
 
 #ifndef FAST_FRAME_PLAYER_H
@@ -20,7 +19,8 @@
 /// 单帧最大像素数 (宽 × 高)，超出将拒绝加载
 #define MAX_ICON_PIXELS 256
 
-class FastFramePlayer {
+class FastFramePlayer
+{
 private:
   FastLED_NeoMatrix *mtx;
 
@@ -31,7 +31,7 @@ private:
 
   // ---------- 防抖状态 (无 String) ----------
   int16_t _currentSysId = -1; // 当前加载的系统图标 ID (-1 表示无效/非系统)
-  char _currentUserFile[32]; // 当前加载的用户文件名 (空字符串表示无效/非用户)
+  char _currentUserFile[32];  // 当前加载的用户文件名 (空字符串表示无效/非用户)
 
   // ---------- 播放状态 ----------
   uint8_t _curFrame = 0;       // 当前帧索引
@@ -53,7 +53,8 @@ public:
    * @brief 加载系统内置图标 (PROGMEM)
    * [性能优化] 整数比较，零开销防抖
    */
-  void loadSystem(int index) {
+  void loadSystem(int index)
+  {
     // 防抖: 如果已经是当前图标，且处于 Flash 模式，直接返回
     if (!_isFsMode && _currentSysId == index)
       return;
@@ -63,7 +64,8 @@ public:
     // 从 PROGMEM 读取元数据
     memcpy_P(&_flashIcon, &ICON_LIB[index], sizeof(StaticIcon));
 
-    if (_flashIcon.width * _flashIcon.height > MAX_ICON_PIXELS) {
+    if (_flashIcon.width * _flashIcon.height > MAX_ICON_PIXELS)
+    {
       _currentSysId = -1;
       return;
     }
@@ -86,7 +88,8 @@ public:
    * @brief 加载用户文件图标 (LittleFS)
    * [性能优化] C 字符串比较，避免 String 堆构造
    */
-  bool loadUser(const char *filename) {
+  bool loadUser(const char *filename)
+  {
     // 防抖: 如果处于文件模式且文件名相同
     if (_isFsMode && strncmp(_currentUserFile, filename, 31) == 0)
       return true;
@@ -105,7 +108,8 @@ public:
 
     // 解析文件头
     uint8_t header[5];
-    if (_fsFile.read(header, 5) != 5) {
+    if (_fsFile.read(header, 5) != 5)
+    {
       _fsFile.close();
       return false;
     }
@@ -115,7 +119,8 @@ public:
     _frameCount = header[2];
     _frameDelay = header[3] | (header[4] << 8);
 
-    if (_width * _height > MAX_ICON_PIXELS) {
+    if (_width * _height > MAX_ICON_PIXELS)
+    {
       _fsFile.close();
       return false;
     }
@@ -136,7 +141,8 @@ public:
   /**
    * @brief 渲染当前帧
    */
-  void play(int16_t x, int16_t y) {
+  void play(int16_t x, int16_t y)
+  {
     // 检查有效性
     if (!_isFsMode && _currentSysId == -1)
       return;
@@ -144,8 +150,10 @@ public:
       return;
 
     // 1. 时间控制 - 切帧
-    if (_frameCount > 1 && _frameDelay > 0) {
-      if (millis() - _lastTime >= _frameDelay) {
+    if (_frameCount > 1 && _frameDelay > 0)
+    {
+      if (millis() - _lastTime >= _frameDelay)
+      {
         _lastTime = millis();
         _curFrame = (_curFrame + 1) % _frameCount;
         loadCurrentFrame();
@@ -154,30 +162,35 @@ public:
 
     // 2. 绘制
     uint16_t count = _width * _height;
-    for (uint16_t i = 0; i < count; i++) {
+    for (uint16_t i = 0; i < count; i++)
+    {
       // 简单取模计算坐标
       mtx->drawPixel(x + (i % _width), y + (i / _width), _frameBuffer[i]);
     }
   }
 
 private:
-  void cleanup() {
+  void cleanup()
+  {
     if (_fsFile)
       _fsFile.close();
     _currentSysId = -1;
     _currentUserFile[0] = '\0';
   }
 
-  void resetPlayback() {
+  void resetPlayback()
+  {
     _curFrame = 0;
     _lastTime = millis();
     loadCurrentFrame();
   }
 
-  void loadCurrentFrame() {
+  void loadCurrentFrame()
+  {
     uint16_t pixelCount = _width * _height;
 
-    if (_isFsMode) {
+    if (_isFsMode)
+    {
       // 文件模式: Seek + Read
       if (!_fsFile)
         return;
@@ -185,10 +198,13 @@ private:
       uint32_t offset = 5 + (_curFrame * pixelCount * 2);
       _fsFile.seek(offset);
       _fsFile.read((uint8_t *)_frameBuffer, pixelCount * 2);
-    } else {
+    }
+    else
+    {
       // Flash 模式: PROGMEM Read
       const uint16_t *ptr = _flashIcon.data + (_curFrame * pixelCount);
-      for (uint16_t i = 0; i < pixelCount; i++) {
+      for (uint16_t i = 0; i < pixelCount; i++)
+      {
         _frameBuffer[i] = pgm_read_word(ptr + i);
       }
     }

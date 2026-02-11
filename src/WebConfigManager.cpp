@@ -4,9 +4,10 @@
 #include <ArduinoJson.h>
 #include <esp_wifi.h>
 
-WebConfigManager_ &WebConfigManager_::getInstance() {
-  static WebConfigManager_ instance;
-  return instance;
+WebConfigManager_ &WebConfigManager_::getInstance()
+{
+    static WebConfigManager_ instance;
+    return instance;
 }
 
 WebConfigManager_ &WebConfigManager = WebConfigManager_::getInstance();
@@ -15,470 +16,537 @@ WebConfigManager_ &WebConfigManager = WebConfigManager_::getInstance();
 // 初始化与主循环
 // =====================================================
 
-void WebConfigManager_::setup() {
-  connState = WIFI_STATE_IDLE;
-  portalActive = false;
-  connectStartTime = 0;
-  lastReconnectAttempt = 0;
-  lastConnectMessage = "";
-  httpServer = nullptr;
-  dnsServer = nullptr;
+void WebConfigManager_::setup()
+{
+    connState = WIFI_STATE_IDLE;
+    portalActive = false;
+    connectStartTime = 0;
+    lastReconnectAttempt = 0;
+    lastConnectMessage = "";
+    httpServer = nullptr;
+    dnsServer = nullptr;
 
-  generateAPName();
+    generateAPName();
 
-  Serial.println("\n[WebConfig] 初始化配网管理器...");
-  Serial.printf("[WebConfig] AP 名称: %s\n", apSSID.c_str());
+    Serial.println("\n[WebConfig] 初始化配网管理器...");
+    Serial.printf("[WebConfig] AP 名称: %s\n", apSSID.c_str());
 
-  // 尝试加载已保存的 WiFi 凭据
-  if (loadCredentials()) {
-    Serial.printf("[WebConfig] 已保存的 WiFi: %s\n", savedSSID.c_str());
+    // 尝试加载已保存的 WiFi 凭据
+    if (loadCredentials())
+    {
+        Serial.printf("[WebConfig] 已保存的 WiFi: %s\n", savedSSID.c_str());
 
-    // 尝试连接已保存的网络
-    Serial.println("[WebConfig] 尝试连接已保存的 WiFi...");
-    if (tryConnect(savedSSID, savedPassword)) {
-      Serial.println("[WebConfig] ✅ WiFi 连接成功！");
-      connState = WIFI_STATE_CONNECTED;
-      AP_MODE = false;
+        // 尝试连接已保存的网络
+        Serial.println("[WebConfig] 尝试连接已保存的 WiFi...");
+        if (tryConnect(savedSSID, savedPassword))
+        {
+            Serial.println("[WebConfig] ✅ WiFi 连接成功！");
+            connState = WIFI_STATE_CONNECTED;
+            AP_MODE = false;
 
-      // NTP 时间同步
-      configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org",
-                 "time.nist.gov");
-      Serial.println("[WebConfig] NTP 时间同步已配置 (UTC+8)");
+            // NTP 时间同步
+            configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org",
+                       "time.nist.gov");
+            Serial.println("[WebConfig] NTP 时间同步已配置 (UTC+8)");
 
-      // 显示连接成功画面
-      DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, savedSSID,
-                                      WiFi.localIP().toString());
-      return;
-    } else {
-      Serial.println("[WebConfig] ❌ 连接已保存的 WiFi 失败");
+            // 显示连接成功画面
+            DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, savedSSID,
+                                            WiFi.localIP().toString());
+            return;
+        }
+        else
+        {
+            Serial.println("[WebConfig] ❌ 连接已保存的 WiFi 失败");
+        }
     }
-  } else {
-    Serial.println("[WebConfig] 未找到已保存的 WiFi 凭据");
-  }
+    else
+    {
+        Serial.println("[WebConfig] 未找到已保存的 WiFi 凭据");
+    }
 
-  // 连接失败或无凭据，启动 AP 配网模式
-  startAPMode();
+    // 连接失败或无凭据，启动 AP 配网模式
+    startAPMode();
 
-  // 通知 DisplayManager 进入 AP 模式显示
-  DisplayManager.setDisplayStatus(DISPLAY_AP_MODE, apSSID, "192.168.4.1");
+    // 通知 DisplayManager 进入 AP 模式显示
+    DisplayManager.setDisplayStatus(DISPLAY_AP_MODE, apSSID, "192.168.4.1");
 }
 
-void WebConfigManager_::tick() {
-  // AP 配网模式下的处理
-  if (portalActive) {
-    if (dnsServer)
-      dnsServer->processNextRequest();
-    if (httpServer)
-      httpServer->handleClient();
-  }
-
-  // 处理连接中状态
-  if (connState == WIFI_STATE_CONNECTING) {
-    if (WiFi.status() == WL_CONNECTED) {
-      connState = WIFI_STATE_CONNECTED;
-      AP_MODE = false;
-      lastConnectMessage = "连接成功！IP: " + WiFi.localIP().toString();
-      Serial.printf("[WebConfig] ✅ WiFi 连接成功！IP: %s\n",
-                    WiFi.localIP().toString().c_str());
-
-      // 保存凭据
-      saveCredentials(connectingSSID, connectingPassword);
-
-      // NTP 时间同步
-      configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org",
-                 "time.nist.gov");
-
-      // 显示连接成功画面 (5秒后自动切换到正常模式)
-      DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, connectingSSID,
-                                      WiFi.localIP().toString());
-    } else if (millis() - connectStartTime > WIFI_CONNECT_TIMEOUT) {
-      connState = WIFI_STATE_CONNECT_FAILED;
-      lastConnectMessage = "连接超时，请检查密码是否正确";
-      Serial.println("[WebConfig] ❌ WiFi 连接超时");
-
-      // 确保 AP 模式仍然可用
-      if (!portalActive) {
-        startAPMode();
-      }
-
-      // 显示连接失败画面
-      DisplayManager.setDisplayStatus(DISPLAY_CONNECT_FAILED, connectingSSID,
-                                      "");
+void WebConfigManager_::tick()
+{
+    // AP 配网模式下的处理
+    if (portalActive)
+    {
+        if (dnsServer)
+            dnsServer->processNextRequest();
+        if (httpServer)
+            httpServer->handleClient();
     }
-  }
 
-  // STA 模式下的断线检测与重连
-  if (connState == WIFI_STATE_CONNECTED && WiFi.status() != WL_CONNECTED) {
-    connState = WIFI_STATE_DISCONNECTED;
-    lastReconnectAttempt = millis();
-    Serial.println("[WebConfig] ⚠️ WiFi 断开连接");
+    // 处理连接中状态
+    if (connState == WIFI_STATE_CONNECTING)
+    {
+        if (WiFi.status() == WL_CONNECTED)
+        {
+            connState = WIFI_STATE_CONNECTED;
+            AP_MODE = false;
+            lastConnectMessage = "连接成功！IP: " + WiFi.localIP().toString();
+            Serial.printf("[WebConfig] ✅ WiFi 连接成功！IP: %s\n",
+                          WiFi.localIP().toString().c_str());
 
-    // 显示连接中动画（等待重连）
-    DisplayManager.setDisplayStatus(DISPLAY_CONNECTING, "", savedSSID);
-  }
+            // 保存凭据
+            saveCredentials(connectingSSID, connectingPassword);
 
-  // 断线重连
-  if (connState == WIFI_STATE_DISCONNECTED) {
-    if (millis() - lastReconnectAttempt > WIFI_RECONNECT_INTERVAL) {
-      Serial.println("[WebConfig] 尝试重新连接...");
-      lastReconnectAttempt = millis();
+            // NTP 时间同步
+            configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org",
+                       "time.nist.gov");
 
-      if (savedSSID.length() > 0) {
-        WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
-        connectStartTime = millis();
-        connState = WIFI_STATE_CONNECTING;
-        connectingSSID = savedSSID;
-        connectingPassword = savedPassword;
+            // 显示连接成功画面 (5秒后自动切换到正常模式)
+            DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, connectingSSID,
+                                            WiFi.localIP().toString());
+        }
+        else if (millis() - connectStartTime > WIFI_CONNECT_TIMEOUT)
+        {
+            connState = WIFI_STATE_CONNECT_FAILED;
+            lastConnectMessage = "连接超时，请检查密码是否正确";
+            Serial.println("[WebConfig] ❌ WiFi 连接超时");
 
-        // 更新显示为连接中动画
+            // 确保 AP 模式仍然可用
+            if (!portalActive)
+            {
+                startAPMode();
+            }
+
+            // 显示连接失败画面
+            DisplayManager.setDisplayStatus(DISPLAY_CONNECT_FAILED, connectingSSID,
+                                            "");
+        }
+    }
+
+    // STA 模式下的断线检测与重连
+    if (connState == WIFI_STATE_CONNECTED && WiFi.status() != WL_CONNECTED)
+    {
+        connState = WIFI_STATE_DISCONNECTED;
+        lastReconnectAttempt = millis();
+        Serial.println("[WebConfig] ⚠️ WiFi 断开连接");
+
+        // 显示连接中动画（等待重连）
         DisplayManager.setDisplayStatus(DISPLAY_CONNECTING, "", savedSSID);
-      }
     }
-  }
+
+    // 断线重连
+    if (connState == WIFI_STATE_DISCONNECTED)
+    {
+        if (millis() - lastReconnectAttempt > WIFI_RECONNECT_INTERVAL)
+        {
+            Serial.println("[WebConfig] 尝试重新连接...");
+            lastReconnectAttempt = millis();
+
+            if (savedSSID.length() > 0)
+            {
+                WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
+                connectStartTime = millis();
+                connState = WIFI_STATE_CONNECTING;
+                connectingSSID = savedSSID;
+                connectingPassword = savedPassword;
+
+                // 更新显示为连接中动画
+                DisplayManager.setDisplayStatus(DISPLAY_CONNECTING, "", savedSSID);
+            }
+        }
+    }
 }
 
 // =====================================================
 // WiFi 连接管理
 // =====================================================
 
-void WebConfigManager_::generateAPName() {
-  uint32_t chipId = 0;
-  for (int i = 0; i < 17; i += 8) {
-    chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
-  }
-  apSSID = String(AP_SSID_PREFIX) + String(chipId & 0xFFFF, HEX);
-  apSSID.toUpperCase();
+void WebConfigManager_::generateAPName()
+{
+    uint32_t chipId = 0;
+    for (int i = 0; i < 17; i += 8)
+    {
+        chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+    }
+    apSSID = String(AP_SSID_PREFIX) + String(chipId & 0xFFFF, HEX);
+    apSSID.toUpperCase();
 }
 
-bool WebConfigManager_::loadCredentials() {
-  prefs.begin("wifi-cred", true); // 只读
-  savedSSID = prefs.getString("ssid", "");
-  savedPassword = prefs.getString("password", "");
-  prefs.end();
+bool WebConfigManager_::loadCredentials()
+{
+    prefs.begin("wifi-cred", true); // 只读
+    savedSSID = prefs.getString("ssid", "");
+    savedPassword = prefs.getString("password", "");
+    prefs.end();
 
-  return savedSSID.length() > 0;
+    return savedSSID.length() > 0;
 }
 
 void WebConfigManager_::saveCredentials(const String &ssid,
-                                        const String &password) {
-  prefs.begin("wifi-cred", false); // 读写
-  prefs.putString("ssid", ssid);
-  prefs.putString("password", password);
-  prefs.end();
+                                        const String &password)
+{
+    prefs.begin("wifi-cred", false); // 读写
+    prefs.putString("ssid", ssid);
+    prefs.putString("password", password);
+    prefs.end();
 
-  savedSSID = ssid;
-  savedPassword = password;
-  Serial.printf("[WebConfig] WiFi 凭据已保存: %s\n", ssid.c_str());
+    savedSSID = ssid;
+    savedPassword = password;
+    Serial.printf("[WebConfig] WiFi 凭据已保存: %s\n", ssid.c_str());
 }
 
-void WebConfigManager_::clearCredentials() {
-  prefs.begin("wifi-cred", false);
-  prefs.clear();
-  prefs.end();
+void WebConfigManager_::clearCredentials()
+{
+    prefs.begin("wifi-cred", false);
+    prefs.clear();
+    prefs.end();
 
-  savedSSID = "";
-  savedPassword = "";
-  Serial.println("[WebConfig] WiFi 凭据已清除");
+    savedSSID = "";
+    savedPassword = "";
+    Serial.println("[WebConfig] WiFi 凭据已清除");
 }
 
 bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
-                                   unsigned long timeout) {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid.c_str(), password.c_str());
+                                   unsigned long timeout)
+{
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid.c_str(), password.c_str());
 
-  Serial.printf("[WebConfig] 正在连接 %s", ssid.c_str());
+    Serial.printf("[WebConfig] 正在连接 %s", ssid.c_str());
 
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout)
+    {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println();
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("[WebConfig] 已连接！IP: %s\n",
-                  WiFi.localIP().toString().c_str());
-    return true;
-  }
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        Serial.printf("[WebConfig] 已连接！IP: %s\n",
+                      WiFi.localIP().toString().c_str());
+        return true;
+    }
 
-  Serial.printf("[WebConfig] 连接 %s 失败 (status=%d)\n", ssid.c_str(),
-                WiFi.status());
-  WiFi.disconnect();
-  return false;
+    Serial.printf("[WebConfig] 连接 %s 失败 (status=%d)\n", ssid.c_str(),
+                  WiFi.status());
+    WiFi.disconnect();
+    return false;
 }
 
 // =====================================================
 // AP 模式管理
 // =====================================================
 
-void WebConfigManager_::startAPMode() {
-  Serial.println("[WebConfig] 🌐 启动 AP 配网模式...");
+void WebConfigManager_::startAPMode()
+{
+    Serial.println("[WebConfig] 🌐 启动 AP 配网模式...");
 
-  // 设置 AP + STA 模式 (保留 STA 以便后续连接)
-  WiFi.mode(WIFI_AP_STA);
+    // 设置 AP + STA 模式 (保留 STA 以便后续连接)
+    WiFi.mode(WIFI_AP_STA);
 
-  // 配置 AP
-  WiFi.softAPConfig(AP_IP, AP_GATEWAY, AP_SUBNET);
+    // 配置 AP
+    WiFi.softAPConfig(AP_IP, AP_GATEWAY, AP_SUBNET);
 
-  if (strlen(AP_PASSWORD) > 0) {
-    WiFi.softAP(apSSID.c_str(), AP_PASSWORD, AP_CHANNEL, 0, AP_MAX_CONN);
-  } else {
-    WiFi.softAP(apSSID.c_str());
-  }
+    if (strlen(AP_PASSWORD) > 0)
+    {
+        WiFi.softAP(apSSID.c_str(), AP_PASSWORD, AP_CHANNEL, 0, AP_MAX_CONN);
+    }
+    else
+    {
+        WiFi.softAP(apSSID.c_str());
+    }
 
-  delay(100);
+    delay(100);
 
-  Serial.printf("[WebConfig] AP 热点: %s\n", apSSID.c_str());
-  Serial.printf("[WebConfig] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+    Serial.printf("[WebConfig] AP 热点: %s\n", apSSID.c_str());
+    Serial.printf("[WebConfig] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
 
-  connState = WIFI_STATE_AP_MODE;
-  AP_MODE = true;
+    connState = WIFI_STATE_AP_MODE;
+    AP_MODE = true;
 
-  // 启动 DNS (Captive Portal)
-  startDNS();
+    // 启动 DNS (Captive Portal)
+    startDNS();
 
-  // 启动 HTTP 服务器
-  startHTTPServer();
+    // 启动 HTTP 服务器
+    startHTTPServer();
 
-  portalActive = true;
-  Serial.println("[WebConfig] ✅ 配网门户已启动");
+    portalActive = true;
+    Serial.println("[WebConfig] ✅ 配网门户已启动");
 }
 
-void WebConfigManager_::stopAPMode() {
-  stopHTTPServer();
-  stopDNS();
+void WebConfigManager_::stopAPMode()
+{
+    stopHTTPServer();
+    stopDNS();
 
-  WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_STA);
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
 
-  portalActive = false;
-  AP_MODE = false;
-  Serial.println("[WebConfig] AP 模式已关闭");
+    portalActive = false;
+    AP_MODE = false;
+    Serial.println("[WebConfig] AP 模式已关闭");
 }
 
-void WebConfigManager_::startDNS() {
-  if (!dnsServer) {
-    dnsServer = new DNSServer();
-  }
-  // 将所有域名解析到 AP IP（Captive Portal）
-  dnsServer->start(DNS_PORT, "*", AP_IP);
-  Serial.println("[WebConfig] DNS 服务已启动 (Captive Portal)");
+void WebConfigManager_::startDNS()
+{
+    if (!dnsServer)
+    {
+        dnsServer = new DNSServer();
+    }
+    // 将所有域名解析到 AP IP（Captive Portal）
+    dnsServer->start(DNS_PORT, "*", AP_IP);
+    Serial.println("[WebConfig] DNS 服务已启动 (Captive Portal)");
 }
 
-void WebConfigManager_::stopDNS() {
-  if (dnsServer) {
-    dnsServer->stop();
-    delete dnsServer;
-    dnsServer = nullptr;
-  }
+void WebConfigManager_::stopDNS()
+{
+    if (dnsServer)
+    {
+        dnsServer->stop();
+        delete dnsServer;
+        dnsServer = nullptr;
+    }
 }
 
 // =====================================================
 // HTTP 服务器
 // =====================================================
 
-void WebConfigManager_::startHTTPServer() {
-  if (!httpServer) {
-    httpServer = new WebServer(80);
-  }
+void WebConfigManager_::startHTTPServer()
+{
+    if (!httpServer)
+    {
+        httpServer = new WebServer(80);
+    }
 
-  // 注册路由
-  httpServer->on("/", HTTP_GET, [this]() { handleRoot(); });
-  httpServer->on("/scan", HTTP_GET, [this]() { handleScan(); });
-  httpServer->on("/connect", HTTP_POST, [this]() { handleConnect(); });
-  httpServer->on("/status", HTTP_GET, [this]() { handleStatus(); });
-  httpServer->on("/restart", HTTP_POST, [this]() { handleRestart(); });
+    // 注册路由
+    httpServer->on("/", HTTP_GET, [this]()
+                   { handleRoot(); });
+    httpServer->on("/scan", HTTP_GET, [this]()
+                   { handleScan(); });
+    httpServer->on("/connect", HTTP_POST, [this]()
+                   { handleConnect(); });
+    httpServer->on("/status", HTTP_GET, [this]()
+                   { handleStatus(); });
+    httpServer->on("/restart", HTTP_POST, [this]()
+                   { handleRestart(); });
 
-  // Captive Portal 检测端点
-  httpServer->on("/generate_204", HTTP_GET,
-                 [this]() { handleRoot(); });                      // Android
-  httpServer->on("/fwlink", HTTP_GET, [this]() { handleRoot(); }); // Windows
-  httpServer->on("/hotspot-detect.html", HTTP_GET,
-                 [this]() { handleRoot(); }); // iOS
-  httpServer->on("/connecttest.txt", HTTP_GET,
-                 [this]() { handleRoot(); }); // Windows 11
-  httpServer->on("/redirect", HTTP_GET, [this]() { handleRoot(); });
+    // Captive Portal 检测端点
+    httpServer->on("/generate_204", HTTP_GET,
+                   [this]()
+                   { handleRoot(); }); // Android
+    httpServer->on("/fwlink", HTTP_GET, [this]()
+                   { handleRoot(); }); // Windows
+    httpServer->on("/hotspot-detect.html", HTTP_GET,
+                   [this]()
+                   { handleRoot(); }); // iOS
+    httpServer->on("/connecttest.txt", HTTP_GET,
+                   [this]()
+                   { handleRoot(); }); // Windows 11
+    httpServer->on("/redirect", HTTP_GET, [this]()
+                   { handleRoot(); });
 
-  httpServer->onNotFound([this]() { handleNotFound(); });
+    httpServer->onNotFound([this]()
+                           { handleNotFound(); });
 
-  httpServer->begin();
-  Serial.println("[WebConfig] HTTP 服务器已启动 (端口 80)");
+    httpServer->begin();
+    Serial.println("[WebConfig] HTTP 服务器已启动 (端口 80)");
 }
 
-void WebConfigManager_::stopHTTPServer() {
-  if (httpServer) {
-    httpServer->stop();
-    delete httpServer;
-    httpServer = nullptr;
-  }
+void WebConfigManager_::stopHTTPServer()
+{
+    if (httpServer)
+    {
+        httpServer->stop();
+        delete httpServer;
+        httpServer = nullptr;
+    }
 }
 
 // =====================================================
 // HTTP 路由处理
 // =====================================================
 
-void WebConfigManager_::handleRoot() {
-  httpServer->send_P(200, "text/html; charset=utf-8", getConfigPageHtml());
+void WebConfigManager_::handleRoot()
+{
+    httpServer->send_P(200, "text/html; charset=utf-8", getConfigPageHtml());
 }
 
-void WebConfigManager_::handleScan() {
-  Serial.println("[WebConfig] 扫描 WiFi 网络...");
+void WebConfigManager_::handleScan()
+{
+    Serial.println("[WebConfig] 扫描 WiFi 网络...");
 
-  int n = WiFi.scanNetworks();
+    int n = WiFi.scanNetworks();
 
-  DynamicJsonDocument doc(2048);
-  JsonArray networks = doc.createNestedArray("networks");
+    DynamicJsonDocument doc(2048);
+    JsonArray networks = doc.createNestedArray("networks");
 
-  for (int i = 0; i < n && i < 20; i++) {
-    JsonObject net = networks.createNestedObject();
-    net["ssid"] = WiFi.SSID(i);
-    net["rssi"] = WiFi.RSSI(i);
-    net["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
-    net["channel"] = WiFi.channel(i);
-  }
+    for (int i = 0; i < n && i < 20; i++)
+    {
+        JsonObject net = networks.createNestedObject();
+        net["ssid"] = WiFi.SSID(i);
+        net["rssi"] = WiFi.RSSI(i);
+        net["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+        net["channel"] = WiFi.channel(i);
+    }
 
-  doc["count"] = n;
+    doc["count"] = n;
 
-  String output;
-  serializeJson(doc, output);
+    String output;
+    serializeJson(doc, output);
 
-  httpServer->sendHeader("Access-Control-Allow-Origin", "*");
-  httpServer->send(200, "application/json", output);
+    httpServer->sendHeader("Access-Control-Allow-Origin", "*");
+    httpServer->send(200, "application/json", output);
 
-  WiFi.scanDelete();
-  Serial.printf("[WebConfig] 扫描完成，发现 %d 个网络\n", n);
+    WiFi.scanDelete();
+    Serial.printf("[WebConfig] 扫描完成，发现 %d 个网络\n", n);
 }
 
-void WebConfigManager_::handleConnect() {
-  if (!httpServer->hasArg("plain")) {
-    httpServer->send(400, "application/json",
-                     "{\"ok\":false,\"msg\":\"缺少请求体\"}");
-    return;
-  }
+void WebConfigManager_::handleConnect()
+{
+    if (!httpServer->hasArg("plain"))
+    {
+        httpServer->send(400, "application/json",
+                         "{\"ok\":false,\"msg\":\"缺少请求体\"}");
+        return;
+    }
 
-  String body = httpServer->arg("plain");
-  DynamicJsonDocument doc(512);
-  auto err = deserializeJson(doc, body);
+    String body = httpServer->arg("plain");
+    DynamicJsonDocument doc(512);
+    auto err = deserializeJson(doc, body);
 
-  if (err) {
-    httpServer->send(400, "application/json",
-                     "{\"ok\":false,\"msg\":\"JSON 解析失败\"}");
-    return;
-  }
+    if (err)
+    {
+        httpServer->send(400, "application/json",
+                         "{\"ok\":false,\"msg\":\"JSON 解析失败\"}");
+        return;
+    }
 
-  String ssid = doc["ssid"].as<String>();
-  String password = doc["password"].as<String>();
+    String ssid = doc["ssid"].as<String>();
+    String password = doc["password"].as<String>();
 
-  if (ssid.length() == 0) {
-    httpServer->send(400, "application/json",
-                     "{\"ok\":false,\"msg\":\"SSID 不能为空\"}");
-    return;
-  }
+    if (ssid.length() == 0)
+    {
+        httpServer->send(400, "application/json",
+                         "{\"ok\":false,\"msg\":\"SSID 不能为空\"}");
+        return;
+    }
 
-  Serial.printf("[WebConfig] 收到连接请求: SSID=%s\n", ssid.c_str());
+    Serial.printf("[WebConfig] 收到连接请求: SSID=%s\n", ssid.c_str());
 
-  // 保存连接信息，设置为连接中状态
-  connectingSSID = ssid;
-  connectingPassword = password;
-  connectStartTime = millis();
-  connState = WIFI_STATE_CONNECTING;
-  lastConnectMessage = "正在连接...";
+    // 保存连接信息，设置为连接中状态
+    connectingSSID = ssid;
+    connectingPassword = password;
+    connectStartTime = millis();
+    connState = WIFI_STATE_CONNECTING;
+    lastConnectMessage = "正在连接...";
 
-  // 先回复客户端
-  httpServer->sendHeader("Access-Control-Allow-Origin", "*");
-  httpServer->send(200, "application/json",
-                   "{\"ok\":true,\"msg\":\"正在连接，请稍候...\"}");
+    // 先回复客户端
+    httpServer->sendHeader("Access-Control-Allow-Origin", "*");
+    httpServer->send(200, "application/json",
+                     "{\"ok\":true,\"msg\":\"正在连接，请稍候...\"}");
 
-  // 显示连接中画面
-  DisplayManager.setDisplayStatus(DISPLAY_CONNECTING, "", ssid);
+    // 显示连接中画面
+    DisplayManager.setDisplayStatus(DISPLAY_CONNECTING, "", ssid);
 
-  // 异步连接（在 tick 中检测结果）
-  WiFi.begin(ssid.c_str(), password.c_str());
+    // 异步连接（在 tick 中检测结果）
+    WiFi.begin(ssid.c_str(), password.c_str());
 }
 
-void WebConfigManager_::handleStatus() {
-  DynamicJsonDocument doc(512);
+void WebConfigManager_::handleStatus()
+{
+    DynamicJsonDocument doc(512);
 
-  doc["state"] = (int)connState;
+    doc["state"] = (int)connState;
 
-  switch (connState) {
-  case WIFI_STATE_CONNECTED:
-    doc["stateText"] = "已连接";
-    doc["ip"] = WiFi.localIP().toString();
-    doc["ssid"] = WiFi.SSID();
-    doc["rssi"] = WiFi.RSSI();
-    doc["mac"] = WiFi.macAddress();
-    break;
-  case WIFI_STATE_CONNECTING:
-    doc["stateText"] = "正在连接...";
-    doc["ssid"] = connectingSSID;
-    break;
-  case WIFI_STATE_AP_MODE:
-    doc["stateText"] = "配网模式";
-    doc["apSSID"] = apSSID;
-    doc["apIP"] = WiFi.softAPIP().toString();
-    break;
-  case WIFI_STATE_CONNECT_FAILED:
-    doc["stateText"] = "连接失败";
-    break;
-  case WIFI_STATE_DISCONNECTED:
-    doc["stateText"] = "已断开";
-    break;
-  default:
-    doc["stateText"] = "空闲";
-    break;
-  }
+    switch (connState)
+    {
+    case WIFI_STATE_CONNECTED:
+        doc["stateText"] = "已连接";
+        doc["ip"] = WiFi.localIP().toString();
+        doc["ssid"] = WiFi.SSID();
+        doc["rssi"] = WiFi.RSSI();
+        doc["mac"] = WiFi.macAddress();
+        break;
+    case WIFI_STATE_CONNECTING:
+        doc["stateText"] = "正在连接...";
+        doc["ssid"] = connectingSSID;
+        break;
+    case WIFI_STATE_AP_MODE:
+        doc["stateText"] = "配网模式";
+        doc["apSSID"] = apSSID;
+        doc["apIP"] = WiFi.softAPIP().toString();
+        break;
+    case WIFI_STATE_CONNECT_FAILED:
+        doc["stateText"] = "连接失败";
+        break;
+    case WIFI_STATE_DISCONNECTED:
+        doc["stateText"] = "已断开";
+        break;
+    default:
+        doc["stateText"] = "空闲";
+        break;
+    }
 
-  doc["message"] = lastConnectMessage;
-  doc["savedSSID"] = savedSSID;
-  doc["freeHeap"] = ESP.getFreeHeap();
-  doc["uptime"] = millis() / 1000;
+    doc["message"] = lastConnectMessage;
+    doc["savedSSID"] = savedSSID;
+    doc["freeHeap"] = ESP.getFreeHeap();
+    doc["uptime"] = millis() / 1000;
 
-  String output;
-  serializeJson(doc, output);
+    String output;
+    serializeJson(doc, output);
 
-  httpServer->sendHeader("Access-Control-Allow-Origin", "*");
-  httpServer->send(200, "application/json", output);
+    httpServer->sendHeader("Access-Control-Allow-Origin", "*");
+    httpServer->send(200, "application/json", output);
 }
 
-void WebConfigManager_::handleRestart() {
-  httpServer->send(200, "application/json",
-                   "{\"ok\":true,\"msg\":\"设备即将重启...\"}");
-  delay(1000);
-  ESP.restart();
+void WebConfigManager_::handleRestart()
+{
+    httpServer->send(200, "application/json",
+                     "{\"ok\":true,\"msg\":\"设备即将重启...\"}");
+    delay(1000);
+    ESP.restart();
 }
 
-void WebConfigManager_::handleNotFound() {
-  // Captive Portal: 将所有未知请求重定向到配网页面
-  httpServer->sendHeader("Location", "http://192.168.4.1", true);
-  httpServer->send(302, "text/plain", "");
+void WebConfigManager_::handleNotFound()
+{
+    // Captive Portal: 将所有未知请求重定向到配网页面
+    httpServer->sendHeader("Location", "http://192.168.4.1", true);
+    httpServer->send(302, "text/plain", "");
 }
 
 // =====================================================
 // 公共接口
 // =====================================================
 
-String WebConfigManager_::getIP() const {
-  if (connState == WIFI_STATE_CONNECTED) {
-    return WiFi.localIP().toString();
-  } else if (connState == WIFI_STATE_AP_MODE) {
-    return WiFi.softAPIP().toString();
-  }
-  return "0.0.0.0";
+String WebConfigManager_::getIP() const
+{
+    if (connState == WIFI_STATE_CONNECTED)
+    {
+        return WiFi.localIP().toString();
+    }
+    else if (connState == WIFI_STATE_AP_MODE)
+    {
+        return WiFi.softAPIP().toString();
+    }
+    return "0.0.0.0";
 }
 
-void WebConfigManager_::forceAPMode() {
-  Serial.println("[WebConfig] 手动触发 AP 配网模式");
-  WiFi.disconnect();
-  startAPMode();
+void WebConfigManager_::forceAPMode()
+{
+    Serial.println("[WebConfig] 手动触发 AP 配网模式");
+    WiFi.disconnect();
+    startAPMode();
 }
 
 // =====================================================
 // 配网 HTML 页面生成
 // =====================================================
 
-const char *WebConfigManager_::getConfigPageHtml() {
-  static const char html[] PROGMEM = R"rawliteral(
+const char *WebConfigManager_::getConfigPageHtml()
+{
+    static const char html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -970,8 +1038,7 @@ const char *WebConfigManager_::getConfigPageHtml() {
                 </div>
                 设备信息
             </div>
-            <div class="info-row"><span class="info-label">热点名称</span><span class="info-value" id="infoAPName">)rawliteral" +
-                                     apSSID + R"rawliteral(</span></div>
+
             <div class="info-row"><span class="info-label">配网地址</span><span class="info-value">192.168.4.1</span></div>
             <div class="info-row"><span class="info-label">固件版本</span><span class="info-value">v1.0.0</span></div>
             <div class="info-row"><span class="info-label">芯片型号</span><span class="info-value">ESP32</span></div>
@@ -1202,5 +1269,5 @@ const char *WebConfigManager_::getConfigPageHtml() {
 </html>
 )rawliteral";
 
-  return html;
+    return html;
 }

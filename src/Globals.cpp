@@ -22,7 +22,7 @@ bool SHOW_TIME = true;
 bool SHOW_DATE = true;
 bool SHOW_TEMP = true;
 bool SHOW_HUM = true;
-bool SHOW_WEATHER = false;
+bool SHOW_WEATHER = true;
 bool SHOW_WIND = true;
 bool SHOW_SPECTRUM = true;
 // 默认位置在最后
@@ -95,7 +95,8 @@ unsigned long WEATHER_SUNRISE = 0;
 unsigned long WEATHER_SUNSET = 0;
 int WEATHER_COD = 0;
 
-void loadSettings() {
+void loadSettings()
+{
   preferences.begin("neo-clock", true); // 只读模式加载
 
   TIME_PER_APP = preferences.getUInt("appTime", 5000);
@@ -153,7 +154,8 @@ void loadSettings() {
   Serial.printf("日期格式: %s\n", DATE_FORMAT.c_str());
 }
 
-void saveSettings() {
+void saveSettings()
+{
   preferences.begin("neo-clock", false); // 读写模式保存
 
   preferences.putUInt("appTime", TIME_PER_APP);

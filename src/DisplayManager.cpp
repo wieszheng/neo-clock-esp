@@ -1,13 +1,3 @@
-/**
- * @file DisplayManager.cpp
- * @brief LED 矩阵显示管理器
- *
- * ESP32 性能优化:
- *   - CRC32: 从逐位计算(O(8n)) 优化为查表法(O(n))，大幅提升 Liveview 传输性能
- *   - 简化部分逻辑，减少分支预测失败
- *   - 使用更紧凑的 JSON 文档大小
- */
-
 #include "DisplayManager.h"
 #include "Apps.h"
 #include "Tools.h"
@@ -75,9 +65,11 @@ static const uint32_t PROGMEM crc32_table[256] = {
     0x54DE5729, 0x23D967BF, 0xB3667A00, 0xC4614A96, 0x5D681B0C, 0x2A6F2B94,
     0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D};
 
-uint32_t DisplayManager_::_calculateCRC32(byte *data, size_t length) {
+uint32_t DisplayManager_::_calculateCRC32(byte *data, size_t length)
+{
   uint32_t crc = 0xFFFFFFFF;
-  for (size_t i = 0; i < length; i++) {
+  for (size_t i = 0; i < length; i++)
+  {
     uint8_t table_idx = (crc ^ data[i]) & 0xFF;
     crc = (crc >> 8) ^ pgm_read_dword(&crc32_table[table_idx]);
   }
@@ -87,7 +79,8 @@ uint32_t DisplayManager_::_calculateCRC32(byte *data, size_t length) {
 // ==================================================================
 // 单例
 // ==================================================================
-DisplayManager_ &DisplayManager_::getInstance() {
+DisplayManager_ &DisplayManager_::getInstance()
+{
   static DisplayManager_ instance;
   return instance;
 }
@@ -97,7 +90,8 @@ DisplayManager_ &DisplayManager = DisplayManager.getInstance();
 // ==================================================================
 // 初始化
 // ==================================================================
-void DisplayManager_::setup() {
+void DisplayManager_::setup()
+{
   FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
   setMatrixLayout(MATRIX_LAYOUT);
 
@@ -129,13 +123,16 @@ void DisplayManager_::setup() {
 // ==================================================================
 // 亮度与颜色
 // ==================================================================
-void DisplayManager_::setBrightness(uint8_t bri) {
+void DisplayManager_::setBrightness(uint8_t bri)
+{
   matrix->setBrightness(MATRIX_OFF ? 0 : bri);
 }
-void DisplayManager_::setTextColor(uint16_t color) {
+void DisplayManager_::setTextColor(uint16_t color)
+{
   matrix->setTextColor(color);
 }
-void DisplayManager_::setMatrixState(bool on) {
+void DisplayManager_::setMatrixState(bool on)
+{
   MATRIX_OFF = !on;
   setBrightness(BRIGHTNESS);
 }
@@ -144,7 +141,8 @@ void DisplayManager_::defaultTextColor() { setTextColor(TEXTCOLOR_565); }
 // ==================================================================
 // 矩阵布局
 // ==================================================================
-void DisplayManager_::setMatrixLayout(int layout) {
+void DisplayManager_::setMatrixLayout(int layout)
+{
   delete matrix;
 
   // 简化布局枚举切换分支
@@ -152,7 +150,8 @@ void DisplayManager_::setMatrixLayout(int layout) {
                  NEO_MATRIX_PROGRESSIVE;
   int w = 8, h = 8, tilesX = 4, tilesY = 1;
 
-  switch (layout) {
+  switch (layout)
+  {
   case 0: // 32x8 单块 Col+Zigzag
     w = 32;
     h = 8;
@@ -186,9 +185,12 @@ void DisplayManager_::setMatrixLayout(int layout) {
     break;
   }
 
-  if (tilesX > 1) {
+  if (tilesX > 1)
+  {
     matrix = new FastLED_NeoMatrix(leds, w, h, tilesX, tilesY, type);
-  } else {
+  }
+  else
+  {
     matrix = new FastLED_NeoMatrix(leds, w, h, type);
   }
 
@@ -199,10 +201,13 @@ void DisplayManager_::setMatrixLayout(int layout) {
 // ==================================================================
 // 主循环
 // ==================================================================
-void DisplayManager_::tick() {
-  if (_displayStatus != DISPLAY_NORMAL) {
+void DisplayManager_::tick()
+{
+  if (_displayStatus != DISPLAY_NORMAL)
+  {
     matrix->clear();
-    switch (_displayStatus) {
+    switch (_displayStatus)
+    {
     case DISPLAY_AP_MODE:
       _renderAPMode();
       break;
@@ -219,14 +224,18 @@ void DisplayManager_::tick() {
       break;
     }
     matrix->show();
-  } else {
+  }
+  else
+  {
     ui->update();
   }
 
   if (_liveviewInterval > 0 &&
-      (millis() - _liveviewLastUpdate) >= _liveviewInterval) {
+      (millis() - _liveviewLastUpdate) >= _liveviewInterval)
+  {
     _liveviewLastUpdate = millis();
-    if (_liveviewCallback != nullptr) {
+    if (_liveviewCallback != nullptr)
+    {
       _fillLiveviewBuffer();
     }
   }
@@ -239,28 +248,34 @@ void DisplayManager_::clear() { matrix->clear(); }
 void DisplayManager_::show() { matrix->show(); }
 
 void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
-                                bool centered, bool ignoreUppercase) {
-  if (centered) {
+                                bool centered, bool ignoreUppercase)
+{
+  if (centered)
+  {
     uint16_t textWidth = getTextWidth(text, ignoreUppercase);
     int16_t textX = (MATRIX_WIDTH - textWidth) / 2;
     matrix->setCursor(textX, y);
-  } else {
+  }
+  else
+  {
     matrix->setCursor(x, y);
   }
 
-  if (!ignoreUppercase) {
-    // [性能优化] 避免 VLA (Variable Length Array) 和过多的栈分配
-    // 大多数字符串都很短，使用固定小缓冲区即可
+  if (!ignoreUppercase)
+  {
     char upperText[64];
     size_t len = 0;
     const char *p = text;
-    while (*p && len < 63) {
+    while (*p && len < 63)
+    {
       upperText[len++] = toupper(*p);
       p++;
     }
     upperText[len] = '\0';
     matrix->print(upperText);
-  } else {
+  }
+  else
+  {
     matrix->print(text);
   }
 }
@@ -268,7 +283,8 @@ void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
 // ==================================================================
 // 设置应用
 // ==================================================================
-void DisplayManager_::applyAllSettings() {
+void DisplayManager_::applyAllSettings()
+{
   ui->setTargetFPS(MATRIX_FPS);
   ui->setTimePerApp(TIME_PER_APP);
   ui->setTimePerTransition(TIME_PER_TRANSITION);
@@ -281,7 +297,8 @@ void DisplayManager_::applyAllSettings() {
     ui->disablesetAutoTransition();
 }
 
-void DisplayManager_::loadNativeApps() {
+void DisplayManager_::loadNativeApps()
+{
   Apps.clear();
 
   Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
@@ -292,20 +309,21 @@ void DisplayManager_::loadNativeApps() {
                   WEATHER_DURATION});
   Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
 
-  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b) {
-    return a.position < b.position;
-  });
+  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b)
+            { return a.position < b.position; });
 
   ui->setApps(Apps);
 }
 
-void DisplayManager_::updateAppVector(const char *json) {
+void DisplayManager_::updateAppVector(const char *json)
+{
   DynamicJsonDocument doc(1024);
   auto error = deserializeJson(doc, json);
   if (error)
     return;
 
-  for (const auto &app : doc.as<JsonArray>()) {
+  for (const auto &app : doc.as<JsonArray>())
+  {
     String name = app["name"].as<String>();
     bool show = app.containsKey("show") ? app["show"].as<bool>() : true;
 
@@ -324,27 +342,8 @@ void DisplayManager_::updateAppVector(const char *json) {
   loadNativeApps();
 }
 
-void DisplayManager_::loadNativeApps() {
-  Apps.clear();
-
-  Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
-  Apps.push_back({"date", DateApp, SHOW_DATE, DATE_POSITION, DATE_DURATION});
-  Apps.push_back({"temp", TempApp, SHOW_TEMP, TEMP_POSITION, TEMP_DURATION});
-  Apps.push_back({"hum", HumApp, SHOW_HUM, HUM_POSITION, HUM_DURATION});
-  Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION,
-                  WEATHER_DURATION});
-  Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
-  Apps.push_back({"music", SpectrumApp, SHOW_SPECTRUM, SPECTRUM_POSITION,
-                  SPECTRUM_DURATION});
-
-  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b) {
-    return a.position < b.position;
-  });
-
-  ui->setApps(Apps);
-}
-
-void DisplayManager_::setNewSettings(const char *json) {
+void DisplayManager_::setNewSettings(const char *json)
+{
   DynamicJsonDocument doc(512);
   auto error = deserializeJson(doc, json);
   if (error)
@@ -376,18 +375,22 @@ void DisplayManager_::selectButton() {}
 // ==================================================================
 // Liveview
 // ==================================================================
-void DisplayManager_::setLiveviewCallback(void (*func)(const char *, size_t)) {
+void DisplayManager_::setLiveviewCallback(void (*func)(const char *, size_t))
+{
   _liveviewCallback = func;
 }
 
-void DisplayManager_::_fillLiveviewBuffer() {
+void DisplayManager_::_fillLiveviewBuffer()
+{
   uint8_t *ptr = (uint8_t *)_liveviewBuffer;
 
   memcpy(ptr, _LIVEVIEW_PREFIX, _LIVEVIEW_PREFIX_LENGTH);
   ptr += _LIVEVIEW_PREFIX_LENGTH;
 
-  for (int y = 0; y < MATRIX_HEIGHT; y++) {
-    for (int x = 0; x < MATRIX_WIDTH; x++) {
+  for (int y = 0; y < MATRIX_HEIGHT; y++)
+  {
+    for (int x = 0; x < MATRIX_WIDTH; x++)
+    {
       int index = matrix->XY(x, y);
       *ptr++ = _liveviewLeds[index].r;
       *ptr++ = _liveviewLeds[index].g;
@@ -398,7 +401,8 @@ void DisplayManager_::_fillLiveviewBuffer() {
   size_t totalLen = ptr - (uint8_t *)_liveviewBuffer;
   uint32_t newChecksum = _calculateCRC32((byte *)_liveviewBuffer, totalLen);
 
-  if (_lastChecksum != newChecksum) {
+  if (_lastChecksum != newChecksum)
+  {
     _lastChecksum = newChecksum;
     _liveviewCallback((const char *)_liveviewBuffer, totalLen);
   }
@@ -409,7 +413,8 @@ void DisplayManager_::_fillLiveviewBuffer() {
 // ==================================================================
 void DisplayManager_::setDisplayStatus(DisplayStatus status,
                                        const String &line1,
-                                       const String &line2) {
+                                       const String &line2)
+{
   _displayStatus = status;
   _statusLine1 = line1;
   _statusLine2 = line2;
@@ -427,7 +432,8 @@ void DisplayManager_::setDisplayStatus(DisplayStatus status,
 // 辅助: RGB565 转换宏
 #define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
-void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color) {
+void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color)
+{
   for (int i = 1; i <= 5; i++)
     matrix->drawPixel(x + i, y + 0, color);
   matrix->drawPixel(x + 0, y + 1, color);
@@ -443,11 +449,14 @@ void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color) {
 }
 
 void DisplayManager_::_drawScrollText(int16_t y, const String &text,
-                                      uint16_t color) {
-  if (millis() - _lastScrollTime >= 50) {
+                                      uint16_t color)
+{
+  if (millis() - _lastScrollTime >= 50)
+  {
     _lastScrollTime = millis();
     _scrollX--;
-    if (_scrollX < -_scrollTextWidth) {
+    if (_scrollX < -_scrollTextWidth)
+    {
       _scrollX = MATRIX_WIDTH + 2;
     }
   }
@@ -456,7 +465,8 @@ void DisplayManager_::_drawScrollText(int16_t y, const String &text,
   matrix->print(text);
 }
 
-void DisplayManager_::_renderAPMode() {
+void DisplayManager_::_renderAPMode()
+{
   unsigned long now = millis();
   float breath = (sin((now - _statusStartTime) * 0.003) + 1.0) * 0.5;
   uint8_t intensity = 80 + (uint8_t)(breath * 175);
@@ -470,7 +480,8 @@ void DisplayManager_::_renderAPMode() {
   for (int i = 0; i < 8; i++)
     matrix->drawPixel(8, i, dimColor);
 
-  if (millis() - _lastScrollTime >= 50) {
+  if (millis() - _lastScrollTime >= 50)
+  {
     _lastScrollTime = millis();
     _scrollX--;
     if (_scrollX < 9 - _scrollTextWidth)
@@ -482,9 +493,11 @@ void DisplayManager_::_renderAPMode() {
   matrix->print(_statusLine2);
 }
 
-void DisplayManager_::_renderConnecting() {
+void DisplayManager_::_renderConnecting()
+{
   unsigned long now = millis();
-  if (now - _lastAnimTime >= 150) {
+  if (now - _lastAnimTime >= 150)
+  {
     _lastAnimTime = now;
     _animFrame = (_animFrame + 1) % MATRIX_WIDTH;
   }
@@ -493,16 +506,19 @@ void DisplayManager_::_renderConnecting() {
   uint16_t trailColor = RGB565(0x30, 0x30, 0x78);
   uint16_t dimTrail = RGB565(0x18, 0x18, 0x3C);
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; i++)
+  {
     int pos = (_animFrame + i * 4) % MATRIX_WIDTH;
     matrix->drawPixel(pos, 0, (i == 0) ? dotColor : trailColor);
-    if (i == 0) {
+    if (i == 0)
+    {
       matrix->drawPixel((pos - 1 + MATRIX_WIDTH) % MATRIX_WIDTH, 0, trailColor);
       matrix->drawPixel((pos - 2 + MATRIX_WIDTH) % MATRIX_WIDTH, 0, dimTrail);
     }
   }
 
-  if (millis() - _lastScrollTime >= 55) {
+  if (millis() - _lastScrollTime >= 55)
+  {
     _lastScrollTime = millis();
     _scrollX--;
     if (_scrollX < -_scrollTextWidth)
@@ -513,9 +529,11 @@ void DisplayManager_::_renderConnecting() {
   matrix->print(_statusLine2);
 }
 
-void DisplayManager_::_renderConnected() {
+void DisplayManager_::_renderConnected()
+{
   unsigned long elapsed = millis() - _statusStartTime;
-  if (elapsed > 5000) {
+  if (elapsed > 5000)
+  {
     _displayStatus = DISPLAY_NORMAL;
     AP_MODE = false;
     return;
@@ -530,7 +548,8 @@ void DisplayManager_::_renderConnected() {
   for (int i = 0; i < 7; i++)
     matrix->drawPixel(checkX[i], checkY[i], checkColor);
 
-  if (millis() - _lastScrollTime >= 50) {
+  if (millis() - _lastScrollTime >= 50)
+  {
     _lastScrollTime = millis();
     _scrollX--;
     if (_scrollX < 9 - _scrollTextWidth)
@@ -541,9 +560,11 @@ void DisplayManager_::_renderConnected() {
   matrix->print(_statusLine2);
 }
 
-void DisplayManager_::_renderConnectFailed() {
+void DisplayManager_::_renderConnectFailed()
+{
   unsigned long elapsed = millis() - _statusStartTime;
-  if (elapsed > 3000) {
+  if (elapsed > 3000)
+  {
     setDisplayStatus(DISPLAY_AP_MODE, _statusLine1, "192.168.4.1");
     return;
   }
@@ -552,7 +573,8 @@ void DisplayManager_::_renderConnectFailed() {
     return;
 
   uint16_t xColor = RGB565(0xEF, 0x44, 0x44);
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++)
+  {
     matrix->drawPixel(1 + i, 1 + i, xColor);
     matrix->drawPixel(6 - i, 1 + i, xColor);
   }

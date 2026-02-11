@@ -9,7 +9,8 @@
 #include <vector>
 
 // 显示状态枚举
-enum DisplayStatus {
+enum DisplayStatus
+{
   DISPLAY_NORMAL = 0,    // 正常应用显示
   DISPLAY_AP_MODE,       // AP 配网模式 - 显示热点信息
   DISPLAY_CONNECTING,    // WiFi 连接中动画
@@ -17,7 +18,8 @@ enum DisplayStatus {
   DISPLAY_CONNECT_FAILED // 连接失败提示
 };
 
-class DisplayManager_ {
+class DisplayManager_
+{
 private:
   // Liveview 相关成员变量
   CRGB *_liveviewLeds;

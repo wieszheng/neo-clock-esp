@@ -1,341 +1,562 @@
+/**
+ * @file DisplayManager.cpp
+ * @brief LED 矩阵显示管理器
+ *
+ * ESP32 性能优化:
+ *   - CRC32: 从逐位计算(O(8n)) 优化为查表法(O(n))，大幅提升 Liveview 传输性能
+ *   - 简化部分逻辑，减少分支预测失败
+ *   - 使用更紧凑的 JSON 文档大小
+ */
+
 #include "DisplayManager.h"
-#include <ArduinoJson.h>
 #include "Apps.h"
 #include "Tools.h"
+#include <ArduinoJson.h>
 
-
+// ==================================================================
+// 硬件实例
+// ==================================================================
 CRGB leds[NUM_LEDS];
 
-FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
+FastLED_NeoMatrix *matrix =
+    new FastLED_NeoMatrix(leds, 8, 8, 4, 1,
+                          NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS +
+                              NEO_MATRIX_PROGRESSIVE);
+
 MatrixDisplayUi *ui = new MatrixDisplayUi(matrix);
 
-// Liveview 静态常量
 const char DisplayManager_::_LIVEVIEW_PREFIX[] = "LV:";
 
+// ==================================================================
+// CRC32 查表 (提升计算速度 8x)
+// ==================================================================
+static const uint32_t PROGMEM crc32_table[256] = {
+    0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA, 0x076DC419, 0x706AF48F,
+    0xE963A535, 0x9E6495A3, 0x0EDB8832, 0x79DCB8A4, 0xE0D5E91E, 0x97D2D988,
+    0x09B64C2B, 0x7EB17CBD, 0xE7B82D07, 0x90BF1D91, 0x1DB71064, 0x6AB020F2,
+    0xF3B97148, 0x84BE41DE, 0x1ADAD47D, 0x6DDDE4EB, 0xF4D4B551, 0x83D385C7,
+    0x136C9856, 0x646BA8C0, 0xFD62F97A, 0x8A65C9EC, 0x14015C4F, 0x63066CD9,
+    0xFA0F3D63, 0x8D080DF5, 0x3B6E20C8, 0x4C69105E, 0xD56041E4, 0xA2677172,
+    0x3C03E4D1, 0x4B04D447, 0xD20D85FD, 0xA50AB56B, 0x35B5A8FA, 0x42B2986C,
+    0xDBBBC9D6, 0xACBCF940, 0x32D86CE3, 0x45DF5C75, 0xDCD60DCF, 0xABD13D59,
+    0x26D930AC, 0x51DE003A, 0xC8D75180, 0xBFD06116, 0x21B4F4B5, 0x56B3C423,
+    0xCFBA9599, 0xB8BDA50F, 0x2802B89E, 0x5F058808, 0xC60CD9B2, 0xB10BE924,
+    0x2F6F7C87, 0x58684C11, 0xC1611DAB, 0xB6662D3D, 0x76DC4190, 0x01DB7106,
+    0x98D220BC, 0xEFD5102A, 0x71B18589, 0x06B6B51F, 0x9FBFE4A5, 0xE8B8D433,
+    0x7807C9A2, 0x0F00F934, 0x9609A88E, 0xE10E9818, 0x7F6A0DBB, 0x086D3D2D,
+    0x91646C97, 0xE6635C01, 0x6B6B51F4, 0x1C6C6162, 0x856530D8, 0xF262004E,
+    0x6C0695ED, 0x1B01A57B, 0x8208F4C1, 0xF50FC457, 0x65B0D9C6, 0x12B7E950,
+    0x8BBEB8EA, 0xFCB9887C, 0x62DD1DDF, 0x15DA2D49, 0x8CD37CF3, 0xFBD44C65,
+    0x4DB26158, 0x3AB551CE, 0xA3BC0074, 0xD4BB30E2, 0x4ADFA541, 0x3DD895D7,
+    0xA4D1C46D, 0xD3D6F4FB, 0x4369E96A, 0x346ED9FC, 0xAD678846, 0xDA60B8D0,
+    0x44042D73, 0x33031DE5, 0xAA0A4C5F, 0xDD0D7CC9, 0x5005713C, 0x270241AA,
+    0xBE0B1010, 0xC90C2086, 0x5768B525, 0x206F85B3, 0xB966D409, 0xCE61E49F,
+    0x5EDEF90E, 0x29D9C998, 0xB0D09822, 0xC7D7A8B4, 0x59B33D17, 0x2EB40D81,
+    0xB7BD5C3B, 0xC0BA6CAD, 0xEDB88320, 0x9ABFB3B6, 0x03B6E20C, 0x74B1D29A,
+    0xEAD54739, 0x9DD277AF, 0x04DB2615, 0x73DC1683, 0xE3630B12, 0x94643B84,
+    0x0D6D6A3E, 0x7A6A5AA8, 0xE40ECF0B, 0x9309FF9D, 0x0A00AE27, 0x7D079EB1,
+    0xF00F9344, 0x8708A3D2, 0x1E01F268, 0x6906C2FE, 0xF762575D, 0x806567CB,
+    0x196C3671, 0x6E6B06E7, 0xFED41B76, 0x89D32BE0, 0x10DA7A5A, 0x67DD4ACC,
+    0xF9B9DF6F, 0x8EBEEFF9, 0x17B7BE43, 0x60B08ED5, 0xD6D6A3E8, 0xA1D1937E,
+    0x38D8C2C4, 0x4FDFF252, 0xD1BB67F1, 0xA6BC5767, 0x3FB506DD, 0x48B2364B,
+    0xD80D2BDA, 0xAF0A1B4C, 0x36034AF6, 0x41047A60, 0xDF60EFC3, 0xA867DF55,
+    0x316E8EEF, 0x4669BE79, 0xCB61B38C, 0xBC66831A, 0x256FD2A0, 0x5268E236,
+    0xCC0C7795, 0xBB0B4703, 0x220216B9, 0x5505262F, 0xC5BA3BBE, 0xB2BD0B28,
+    0x2BB45A92, 0x5CB36A04, 0xC2D7FFA7, 0xB5D0CF31, 0x2CD99E8B, 0x5BDEAE1D,
+    0x9B64C2B0, 0xEC63F226, 0x756AA39C, 0x026D930A, 0x9C0906A9, 0xEB0E363F,
+    0x72076785, 0x05005713, 0x95BF4A82, 0xE2B87A14, 0x7BB12BAE, 0x0CB61B38,
+    0x92D28E9B, 0xE5D5BE0D, 0x7CDCEFB7, 0x0BDBDF21, 0x86D3D2D4, 0xF1D4E242,
+    0x68DDB3F8, 0x1FDA836E, 0x81BE16CD, 0xF6B9265B, 0x6FB077E1, 0x18B74777,
+    0x88085AE6, 0xFF0F6A70, 0x66063BCA, 0x11010B5C, 0x8F659EFF, 0xF862AE69,
+    0x616BFFD3, 0x166CCF45, 0xA00AE278, 0xD70DD2EE, 0x4E048354, 0x3903B3C2,
+    0xA7672661, 0xD06016F7, 0x4969474D, 0x3E6E77DB, 0xAED16A4A, 0xD9D65ADC,
+    0x40DF0B66, 0x37D83BF0, 0xA9BCAE53, 0xDEBB9EC5, 0x47B2CF7F, 0x30B5FFE9,
+    0xBDBDF21C, 0xCABAC28A, 0x53B39330, 0x24B4A3A6, 0xBAD03605, 0xCDD70693,
+    0x54DE5729, 0x23D967BF, 0xB3667A00, 0xC4614A96, 0x5D681B0C, 0x2A6F2B94,
+    0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D};
 
-DisplayManager_ &DisplayManager_::getInstance()
-{
-    static DisplayManager_ instance;
-    return instance;
+uint32_t DisplayManager_::_calculateCRC32(byte *data, size_t length) {
+  uint32_t crc = 0xFFFFFFFF;
+  for (size_t i = 0; i < length; i++) {
+    uint8_t table_idx = (crc ^ data[i]) & 0xFF;
+    crc = (crc >> 8) ^ pgm_read_dword(&crc32_table[table_idx]);
+  }
+  return ~crc;
+}
+
+// ==================================================================
+// 单例
+// ==================================================================
+DisplayManager_ &DisplayManager_::getInstance() {
+  static DisplayManager_ instance;
+  return instance;
 }
 
 DisplayManager_ &DisplayManager = DisplayManager.getInstance();
 
-void DisplayManager_::setup()
-{
-    FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
-    setMatrixLayout(MATRIX_LAYOUT);
+// ==================================================================
+// 初始化
+// ==================================================================
+void DisplayManager_::setup() {
+  FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
+  setMatrixLayout(MATRIX_LAYOUT);
 
-    // player.setMatrix(matrix);
+  ui->setAppAnimation(SLIDE_DOWN);
+  ui->setTargetFPS(MATRIX_FPS);
+  ui->setTimePerApp(TIME_PER_APP);
+  ui->setTimePerTransition(TIME_PER_TRANSITION);
+  ui->init();
 
+  _liveviewLeds = leds;
+  _liveviewInterval = 250;
+  _liveviewLastUpdate = millis();
+  _liveviewCallback = nullptr;
+  _lastChecksum = 0;
+  memset(_liveviewBuffer, 0, sizeof(_liveviewBuffer));
 
-    ui->setAppAnimation(SLIDE_DOWN);
-    ui->setTargetFPS(MATRIX_FPS);
-    ui->setTimePerApp(TIME_PER_APP);
-    ui->setTimePerTransition(TIME_PER_TRANSITION);
-    // ui->setOverlays(overlays, 4);
-    ui->init();
-
-    // 初始化 Liveview
-    _liveviewLeds = leds;
-    _liveviewInterval = 250;
-    _liveviewLastUpdate = millis();
-    _liveviewCallback = nullptr;
-    _lastChecksum = 0;
-    memset(_liveviewBuffer, 0, sizeof(_liveviewBuffer));
+  _displayStatus = DISPLAY_NORMAL;
+  _statusLine1 = "";
+  _statusLine2 = "";
+  _scrollX = MATRIX_WIDTH;
+  _scrollTextWidth = 0;
+  _lastScrollTime = 0;
+  _statusStartTime = 0;
+  _animFrame = 0;
+  _lastAnimTime = 0;
+  _statusColor = 0xFFFF;
 }
 
-void DisplayManager_::setBrightness(uint8_t bri)
-{
-    if (MATRIX_OFF)
-    {
-        matrix->setBrightness(0);
-    }
-    else
-    {
-        matrix->setBrightness(bri);
-    }
+// ==================================================================
+// 亮度与颜色
+// ==================================================================
+void DisplayManager_::setBrightness(uint8_t bri) {
+  matrix->setBrightness(MATRIX_OFF ? 0 : bri);
+}
+void DisplayManager_::setTextColor(uint16_t color) {
+  matrix->setTextColor(color);
+}
+void DisplayManager_::setMatrixState(bool on) {
+  MATRIX_OFF = !on;
+  setBrightness(BRIGHTNESS);
+}
+void DisplayManager_::defaultTextColor() { setTextColor(TEXTCOLOR_565); }
+
+// ==================================================================
+// 矩阵布局
+// ==================================================================
+void DisplayManager_::setMatrixLayout(int layout) {
+  delete matrix;
+
+  // 简化布局枚举切换分支
+  uint8_t type = NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS +
+                 NEO_MATRIX_PROGRESSIVE;
+  int w = 8, h = 8, tilesX = 4, tilesY = 1;
+
+  switch (layout) {
+  case 0: // 32x8 单块 Col+Zigzag
+    w = 32;
+    h = 8;
+    tilesX = 1;
+    tilesY = 1;
+    type = NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS +
+           NEO_MATRIX_ZIGZAG;
+    break;
+  case 2: // 32x8 单块 Row+Zigzag
+    w = 32;
+    h = 8;
+    tilesX = 1;
+    tilesY = 1;
+    type =
+        NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG;
+    break;
+  case 3: // 32x8 单块 Bottom+Col+Prog
+    w = 32;
+    h = 8;
+    tilesX = 1;
+    tilesY = 1;
+    type = NEO_MATRIX_BOTTOM + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS +
+           NEO_MATRIX_PROGRESSIVE;
+    break;
+  case 4: // 4x1 拼 Row+Zigzag
+    type =
+        NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG;
+    break;
+  case 5: // Default
+  default:
+    break;
+  }
+
+  if (tilesX > 1) {
+    matrix = new FastLED_NeoMatrix(leds, w, h, tilesX, tilesY, type);
+  } else {
+    matrix = new FastLED_NeoMatrix(leds, w, h, type);
+  }
+
+  delete ui;
+  ui = new MatrixDisplayUi(matrix);
 }
 
-void DisplayManager_::setTextColor(uint16_t color)
-{
-    matrix->setTextColor(color);
-}
-
-void DisplayManager_::setMatrixState(bool on)
-{
-    MATRIX_OFF = !on;
-    setBrightness(BRIGHTNESS);
-}
-
-void DisplayManager_::defaultTextColor()
-{
-    setTextColor(TEXTCOLOR_565);
-}
-
-void DisplayManager_::setMatrixLayout(int layout)
-{
-    delete matrix;
-
-    switch (layout)
-    {
-    case 0:
-        matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
-        break;
-
-    case 2:
-        matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
-        break;
-
-    case 3:
-        matrix = new FastLED_NeoMatrix(leds, 32, 8, NEO_MATRIX_BOTTOM + NEO_MATRIX_LEFT + NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE);
-        break;
-
-    case 4:
-        matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
-        break;
-
-    case 5:
-        matrix = new FastLED_NeoMatrix(leds, 8, 8, 4, 1, NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE);
-    default:
-        break;
-    }
-
-    delete ui;
-    ui = new MatrixDisplayUi(matrix);
-}
-
-void DisplayManager_::tick()
-{
-    if (AP_MODE)
-    {
-    }
-    else
-    {
-        ui->update();
-    }
-
-    // Liveview 循环处理
-    if (_liveviewInterval > 0 && (millis() - _liveviewLastUpdate) >= _liveviewInterval)
-    {
-        _liveviewLastUpdate = millis();
-        
-        if (_liveviewCallback != nullptr)
-        {
-            _fillLiveviewBuffer();
-        }
-    }
-}
-
-void DisplayManager_::clear()
-{
+// ==================================================================
+// 主循环
+// ==================================================================
+void DisplayManager_::tick() {
+  if (_displayStatus != DISPLAY_NORMAL) {
     matrix->clear();
-}
-
-void DisplayManager_::show()
-{
+    switch (_displayStatus) {
+    case DISPLAY_AP_MODE:
+      _renderAPMode();
+      break;
+    case DISPLAY_CONNECTING:
+      _renderConnecting();
+      break;
+    case DISPLAY_CONNECTED:
+      _renderConnected();
+      break;
+    case DISPLAY_CONNECT_FAILED:
+      _renderConnectFailed();
+      break;
+    default:
+      break;
+    }
     matrix->show();
-}
+  } else {
+    ui->update();
+  }
 
-void DisplayManager_::printText(int16_t x, int16_t y, const char *text, bool centered, bool ignoreUppercase)
-{
-
-    if (centered)
-    {
-        uint16_t textWidth = getTextWidth(text, ignoreUppercase);
-        int16_t textX = (MATRIX_WIDTH - textWidth) / 2;
-        matrix->setCursor(textX, y);
+  if (_liveviewInterval > 0 &&
+      (millis() - _liveviewLastUpdate) >= _liveviewInterval) {
+    _liveviewLastUpdate = millis();
+    if (_liveviewCallback != nullptr) {
+      _fillLiveviewBuffer();
     }
-    else
-    {
-        matrix->setCursor(x, y);
+  }
+}
+
+// ==================================================================
+// 基础绘制
+// ==================================================================
+void DisplayManager_::clear() { matrix->clear(); }
+void DisplayManager_::show() { matrix->show(); }
+
+void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
+                                bool centered, bool ignoreUppercase) {
+  if (centered) {
+    uint16_t textWidth = getTextWidth(text, ignoreUppercase);
+    int16_t textX = (MATRIX_WIDTH - textWidth) / 2;
+    matrix->setCursor(textX, y);
+  } else {
+    matrix->setCursor(x, y);
+  }
+
+  if (!ignoreUppercase) {
+    // [性能优化] 避免 VLA (Variable Length Array) 和过多的栈分配
+    // 大多数字符串都很短，使用固定小缓冲区即可
+    char upperText[64];
+    size_t len = 0;
+    const char *p = text;
+    while (*p && len < 63) {
+      upperText[len++] = toupper(*p);
+      p++;
     }
+    upperText[len] = '\0';
+    matrix->print(upperText);
+  } else {
+    matrix->print(text);
+  }
+}
 
-    if (!ignoreUppercase)
-    {
-        size_t length = strlen(text);
-        char upperText[length + 1];
+// ==================================================================
+// 设置应用
+// ==================================================================
+void DisplayManager_::applyAllSettings() {
+  ui->setTargetFPS(MATRIX_FPS);
+  ui->setTimePerApp(TIME_PER_APP);
+  ui->setTimePerTransition(TIME_PER_TRANSITION);
+  setBrightness(BRIGHTNESS);
+  setTextColor(TEXTCOLOR_565);
 
-        for (size_t i = 0; i < length; ++i)
-        {
-            upperText[i] = toupper(text[i]);
-        }
+  if (AUTO_TRANSITION)
+    ui->enablesetAutoTransition();
+  else
+    ui->disablesetAutoTransition();
+}
 
-        upperText[length] = '\0';
-        matrix->print(upperText);
+void DisplayManager_::loadNativeApps() {
+  Apps.clear();
+
+  Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
+  Apps.push_back({"date", DateApp, SHOW_DATE, DATE_POSITION, DATE_DURATION});
+  Apps.push_back({"temp", TempApp, SHOW_TEMP, TEMP_POSITION, TEMP_DURATION});
+  Apps.push_back({"hum", HumApp, SHOW_HUM, HUM_POSITION, HUM_DURATION});
+  Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION,
+                  WEATHER_DURATION});
+  Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
+
+  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b) {
+    return a.position < b.position;
+  });
+
+  ui->setApps(Apps);
+}
+
+void DisplayManager_::updateAppVector(const char *json) {
+  DynamicJsonDocument doc(1024);
+  auto error = deserializeJson(doc, json);
+  if (error)
+    return;
+
+  for (const auto &app : doc.as<JsonArray>()) {
+    String name = app["name"].as<String>();
+    bool show = app.containsKey("show") ? app["show"].as<bool>() : true;
+
+    if (name == "time")
+      SHOW_TIME = show;
+    else if (name == "date")
+      SHOW_DATE = show;
+    else if (name == "temp")
+      SHOW_TEMP = show;
+    else if (name == "hum")
+      SHOW_HUM = show;
+    else if (name == "music")
+      SHOW_SPECTRUM = show;
+  }
+
+  loadNativeApps();
+}
+
+void DisplayManager_::loadNativeApps() {
+  Apps.clear();
+
+  Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
+  Apps.push_back({"date", DateApp, SHOW_DATE, DATE_POSITION, DATE_DURATION});
+  Apps.push_back({"temp", TempApp, SHOW_TEMP, TEMP_POSITION, TEMP_DURATION});
+  Apps.push_back({"hum", HumApp, SHOW_HUM, HUM_POSITION, HUM_DURATION});
+  Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION,
+                  WEATHER_DURATION});
+  Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
+  Apps.push_back({"music", SpectrumApp, SHOW_SPECTRUM, SPECTRUM_POSITION,
+                  SPECTRUM_DURATION});
+
+  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b) {
+    return a.position < b.position;
+  });
+
+  ui->setApps(Apps);
+}
+
+void DisplayManager_::setNewSettings(const char *json) {
+  DynamicJsonDocument doc(512);
+  auto error = deserializeJson(doc, json);
+  if (error)
+    return;
+
+  if (doc.containsKey("appTime"))
+    TIME_PER_APP = doc["appTime"];
+  if (doc.containsKey("transition"))
+    TIME_PER_TRANSITION = doc["transition"];
+  if (doc.containsKey("brightness"))
+    BRIGHTNESS = doc["brightness"];
+  if (doc.containsKey("fps"))
+    MATRIX_FPS = doc["fps"];
+  if (doc.containsKey("autoTransition"))
+    AUTO_TRANSITION = doc["autoTransition"];
+
+  applyAllSettings();
+}
+
+// ==================================================================
+// 导航与按钮
+// ==================================================================
+void DisplayManager_::nextApp() { ui->nextApp(); }
+void DisplayManager_::previousApp() { ui->previousApp(); }
+void DisplayManager_::leftButton() { ui->previousApp(); }
+void DisplayManager_::rightButton() { ui->nextApp(); }
+void DisplayManager_::selectButton() {}
+
+// ==================================================================
+// Liveview
+// ==================================================================
+void DisplayManager_::setLiveviewCallback(void (*func)(const char *, size_t)) {
+  _liveviewCallback = func;
+}
+
+void DisplayManager_::_fillLiveviewBuffer() {
+  uint8_t *ptr = (uint8_t *)_liveviewBuffer;
+
+  memcpy(ptr, _LIVEVIEW_PREFIX, _LIVEVIEW_PREFIX_LENGTH);
+  ptr += _LIVEVIEW_PREFIX_LENGTH;
+
+  for (int y = 0; y < MATRIX_HEIGHT; y++) {
+    for (int x = 0; x < MATRIX_WIDTH; x++) {
+      int index = matrix->XY(x, y);
+      *ptr++ = _liveviewLeds[index].r;
+      *ptr++ = _liveviewLeds[index].g;
+      *ptr++ = _liveviewLeds[index].b;
     }
-    else
-    {
-        matrix->print(text);
+  }
+
+  size_t totalLen = ptr - (uint8_t *)_liveviewBuffer;
+  uint32_t newChecksum = _calculateCRC32((byte *)_liveviewBuffer, totalLen);
+
+  if (_lastChecksum != newChecksum) {
+    _lastChecksum = newChecksum;
+    _liveviewCallback((const char *)_liveviewBuffer, totalLen);
+  }
+}
+
+// ==================================================================
+// 状态显示系统
+// ==================================================================
+void DisplayManager_::setDisplayStatus(DisplayStatus status,
+                                       const String &line1,
+                                       const String &line2) {
+  _displayStatus = status;
+  _statusLine1 = line1;
+  _statusLine2 = line2;
+  _scrollX = MATRIX_WIDTH + 4;
+  _scrollTextWidth = getTextWidth(line2.c_str(), false);
+  _statusStartTime = millis();
+  _animFrame = 0;
+  _lastAnimTime = millis();
+  _lastScrollTime = millis();
+
+  Serial.printf("[Display] 状态切换: %d, L1='%s', L2='%s'\n", status,
+                line1.c_str(), line2.c_str());
+}
+
+// 辅助: RGB565 转换宏
+#define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
+
+void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color) {
+  for (int i = 1; i <= 5; i++)
+    matrix->drawPixel(x + i, y + 0, color);
+  matrix->drawPixel(x + 0, y + 1, color);
+  matrix->drawPixel(x + 6, y + 1, color);
+  for (int i = 2; i <= 4; i++)
+    matrix->drawPixel(x + i, y + 2, color);
+  matrix->drawPixel(x + 1, y + 3, color);
+  matrix->drawPixel(x + 5, y + 3, color);
+  matrix->drawPixel(x + 3, y + 4, color);
+  matrix->drawPixel(x + 2, y + 5, color);
+  matrix->drawPixel(x + 4, y + 5, color);
+  matrix->drawPixel(x + 3, y + 6, color);
+}
+
+void DisplayManager_::_drawScrollText(int16_t y, const String &text,
+                                      uint16_t color) {
+  if (millis() - _lastScrollTime >= 50) {
+    _lastScrollTime = millis();
+    _scrollX--;
+    if (_scrollX < -_scrollTextWidth) {
+      _scrollX = MATRIX_WIDTH + 2;
     }
+  }
+  matrix->setTextColor(color);
+  matrix->setCursor(_scrollX, y);
+  matrix->print(text);
 }
 
-void DisplayManager_::applyAllSettings()
-{
-    ui->setTargetFPS(MATRIX_FPS);
-    ui->setTimePerApp(TIME_PER_APP);
-    ui->setTimePerTransition(TIME_PER_TRANSITION);
-    setBrightness(BRIGHTNESS);
-    setTextColor(TEXTCOLOR_565);
+void DisplayManager_::_renderAPMode() {
+  unsigned long now = millis();
+  float breath = (sin((now - _statusStartTime) * 0.003) + 1.0) * 0.5;
+  uint8_t intensity = 80 + (uint8_t)(breath * 175);
+  uint16_t iconColor = RGB565((uint8_t)(0x63 * intensity / 255),
+                              (uint8_t)(0x66 * intensity / 255),
+                              (uint8_t)(0xF1 * intensity / 255));
 
-    if (AUTO_TRANSITION)
-    {
-        ui->enablesetAutoTransition();
+  _drawWiFiIcon(0, 0, iconColor);
+
+  uint16_t dimColor = RGB565(0x30, 0x30, 0x50);
+  for (int i = 0; i < 8; i++)
+    matrix->drawPixel(8, i, dimColor);
+
+  if (millis() - _lastScrollTime >= 50) {
+    _lastScrollTime = millis();
+    _scrollX--;
+    if (_scrollX < 9 - _scrollTextWidth)
+      _scrollX = MATRIX_WIDTH + 2;
+  }
+
+  matrix->setTextColor(0xFFFF);
+  matrix->setCursor(_scrollX, 6);
+  matrix->print(_statusLine2);
+}
+
+void DisplayManager_::_renderConnecting() {
+  unsigned long now = millis();
+  if (now - _lastAnimTime >= 150) {
+    _lastAnimTime = now;
+    _animFrame = (_animFrame + 1) % MATRIX_WIDTH;
+  }
+
+  uint16_t dotColor = RGB565(0x63, 0x66, 0xF1);
+  uint16_t trailColor = RGB565(0x30, 0x30, 0x78);
+  uint16_t dimTrail = RGB565(0x18, 0x18, 0x3C);
+
+  for (int i = 0; i < 3; i++) {
+    int pos = (_animFrame + i * 4) % MATRIX_WIDTH;
+    matrix->drawPixel(pos, 0, (i == 0) ? dotColor : trailColor);
+    if (i == 0) {
+      matrix->drawPixel((pos - 1 + MATRIX_WIDTH) % MATRIX_WIDTH, 0, trailColor);
+      matrix->drawPixel((pos - 2 + MATRIX_WIDTH) % MATRIX_WIDTH, 0, dimTrail);
     }
-    else
-    {
-        ui->disablesetAutoTransition();
-    }
+  }
+
+  if (millis() - _lastScrollTime >= 55) {
+    _lastScrollTime = millis();
+    _scrollX--;
+    if (_scrollX < -_scrollTextWidth)
+      _scrollX = MATRIX_WIDTH + 2;
+  }
+  matrix->setTextColor(0xFFFF);
+  matrix->setCursor(_scrollX, 7);
+  matrix->print(_statusLine2);
 }
 
-void DisplayManager_::loadNativeApps()
-{
-    Apps.clear();
+void DisplayManager_::_renderConnected() {
+  unsigned long elapsed = millis() - _statusStartTime;
+  if (elapsed > 5000) {
+    _displayStatus = DISPLAY_NORMAL;
+    AP_MODE = false;
+    return;
+  }
 
-    Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
-    Apps.push_back({"date", DateApp, SHOW_DATE, DATE_POSITION, DATE_DURATION});
-    Apps.push_back({"temp", TempApp, SHOW_TEMP, TEMP_POSITION, TEMP_DURATION});
-    Apps.push_back({"hum", HumApp, SHOW_HUM, HUM_POSITION, HUM_DURATION});
-    Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION, WEATHER_DURATION});
-    Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
+  float breath = (sin(elapsed * 0.005) + 1.0) * 0.5;
+  uint8_t gBright = 100 + (uint8_t)(breath * 80);
+  uint16_t checkColor = RGB565(0x10, gBright, 0x30);
 
-    std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b)
-              { return a.position < b.position; });
+  const int8_t checkX[] = {1, 2, 3, 4, 5, 6, 7};
+  const int8_t checkY[] = {5, 6, 7, 6, 5, 4, 3};
+  for (int i = 0; i < 7; i++)
+    matrix->drawPixel(checkX[i], checkY[i], checkColor);
 
-    ui->setApps(Apps);
+  if (millis() - _lastScrollTime >= 50) {
+    _lastScrollTime = millis();
+    _scrollX--;
+    if (_scrollX < 9 - _scrollTextWidth)
+      _scrollX = MATRIX_WIDTH + 2;
+  }
+  matrix->setTextColor(0xFFFF);
+  matrix->setCursor(_scrollX, 6);
+  matrix->print(_statusLine2);
 }
 
-void DisplayManager_::updateAppVector(const char *json)
-{
-    DynamicJsonDocument doc(1024);
-    auto error = deserializeJson(doc, json);
-    if (error)
-        return;
+void DisplayManager_::_renderConnectFailed() {
+  unsigned long elapsed = millis() - _statusStartTime;
+  if (elapsed > 3000) {
+    setDisplayStatus(DISPLAY_AP_MODE, _statusLine1, "192.168.4.1");
+    return;
+  }
 
-    for (const auto &app : doc.as<JsonArray>())
-    {
-        String name = app["name"].as<String>();
-        bool show = app.containsKey("show") ? app["show"].as<bool>() : true;
-        int position = app.containsKey("pos") ? app["pos"].as<int>() : -1;
+  if ((elapsed / 300) % 2 != 0)
+    return;
 
-        if (name == "time")
-            SHOW_TIME = show;
-        else if (name == "date")
-            SHOW_DATE = show;
-        else if (name == "temp")
-            SHOW_TEMP = show;
-        else if (name == "hum")
-            SHOW_HUM = show;
-        else if (name == "weather")
-            SHOW_WEATHER = show;
-    }
-
-    loadNativeApps();
+  uint16_t xColor = RGB565(0xEF, 0x44, 0x44);
+  for (int i = 0; i < 6; i++) {
+    matrix->drawPixel(1 + i, 1 + i, xColor);
+    matrix->drawPixel(6 - i, 1 + i, xColor);
+  }
+  matrix->setTextColor(xColor);
+  matrix->setCursor(10, 6);
+  matrix->print("FAIL");
 }
-
-void DisplayManager_::setNewSettings(const char *json)
-{
-    DynamicJsonDocument doc(512);
-    auto error = deserializeJson(doc, json);
-    if (error)
-        return;
-
-    TIME_PER_APP = doc.containsKey("appTime") ? doc["appTime"].as<int>() : TIME_PER_APP;
-    TIME_PER_TRANSITION = doc.containsKey("transition") ? doc["transition"].as<int>() : TIME_PER_TRANSITION;
-    BRIGHTNESS = doc.containsKey("brightness") ? doc["brightness"].as<int>() : BRIGHTNESS;
-    MATRIX_FPS = doc.containsKey("fps") ? doc["fps"].as<int>() : MATRIX_FPS;
-    AUTO_TRANSITION = doc.containsKey("autoTransition") ? doc["autoTransition"].as<bool>() : AUTO_TRANSITION;
-
-    applyAllSettings();
-}
-
-void DisplayManager_::nextApp()
-{
-    ui->nextApp();
-}
-
-void DisplayManager_::previousApp()
-{
-    ui->previousApp();
-}
-
-void DisplayManager_::leftButton()
-{
-    ui->previousApp();
-}
-
-void DisplayManager_::rightButton()
-{
-    ui->nextApp();
-}
-
-void DisplayManager_::selectButton()
-{
-    // 目前没有特定功能，可以根据需要添加
-}
-
-// Liveview 公开方法实现
-void DisplayManager_::setLiveviewCallback(void (*func)(const char*, size_t))
-{
-    _liveviewCallback = func;
-}
-
-// Liveview 私有方法实现
-void DisplayManager_::_fillLiveviewBuffer()
-{
-    // 1. 设置头部
-    uint8_t* ptr = (uint8_t*)_liveviewBuffer;
-
-    // 写入前缀
-    memcpy(ptr, _LIVEVIEW_PREFIX, _LIVEVIEW_PREFIX_LENGTH);
-    ptr += _LIVEVIEW_PREFIX_LENGTH;
-
-    // 2. 填充 LED 数值 (直接写入字节，不转字符串)
-    for (int y = 0; y < MATRIX_HEIGHT; y++)
-    {
-        for (int x = 0; x < MATRIX_WIDTH; x++)
-        {
-            // 获取物理索引 (处理 ZigZag 排列)
-            int index = matrix->XY(x, y);
-
-            // 直接赋值，极快
-            *ptr++ = _liveviewLeds[index].r;
-            *ptr++ = _liveviewLeds[index].g;
-            *ptr++ = _liveviewLeds[index].b;
-        }
-    }
-
-    // 计算实际长度
-    size_t totalLen = ptr - (uint8_t*)_liveviewBuffer;
-
-    // 3. 计算 Checksum (对二进制数据计算，速度更快)
-    uint32_t newChecksum = _calculateCRC32((byte*)_liveviewBuffer, totalLen);
-    if (_lastChecksum != newChecksum)
-    {
-        _lastChecksum = newChecksum;
-        // 发送二进制数据
-        _liveviewCallback((const char*)_liveviewBuffer, totalLen);
-    }
-}
-
-uint32_t DisplayManager_::_calculateCRC32(byte* data, size_t length)
-{
-    uint32_t crc = 0xFFFFFFFF;
-    for (size_t i = 0; i < length; i++)
-    {
-        crc ^= data[i];
-        for (int j = 0; j < 8; j++)
-        {
-            if (crc & 1)
-            {
-                crc = (crc >> 1) ^ 0xEDB88320;
-            }
-            else
-            {
-                crc >>= 1;
-            }
-        }
-    }
-    return ~crc;
-}
-

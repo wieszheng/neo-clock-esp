@@ -4,33 +4,48 @@
 #include <Arduino.h>
 #include <DHT.h>
 
-class PeripheryManager_
-{
+class PeripheryManager_ {
 public:
-    static PeripheryManager_ &getInstance();
-    void setup();
-    void tick();
-    
-    bool isSensorAvailable();
+  static PeripheryManager_ &getInstance();
+  void setup();
+  void tick();
+
+  bool isSensorAvailable();
+
+  // 麦克风与频谱分析
+  void initMic();
+  bool getSpectrumData(uint8_t *outputBands, int numBands);
 
 private:
-    // DHT22传感器配置
-    void readDHT22();
+  // DHT22传感器配置
+  void readDHT22();
 
-    // DHT22实例
-    DHT *dht;
+  // I2S 配置
+  void initI2S();
+  void sampleAudio();
+  void computeFFT();
 
-    // 传感器数据缓存
-    float temperature;
-    float humidity;
-    bool sensorAvailable;
-    unsigned long lastUpdate;
+  // DHT22实例
+  DHT *dht;
 
+  // 传感器数据缓存
+  float temperature;
+  float humidity;
+  bool sensorAvailable;
+  unsigned long lastUpdate;
+  uint8_t _retryCount;
+  ;
 
-    // 传感器配置常量
-    static const int DHT_PIN = 4;        // DHT22数据引脚(GPIO4)
-    static const int DHT_TYPE = DHT22;    // DHT22传感器类型
-    static const unsigned long READ_INTERVAL = 2000; // 读取间隔(毫秒),DHT22需要至少2秒
+  // 音频数据缓存
+  double *vReal;
+  double *vImag;
+
+  // 传感器配置常量
+  static const int DHT_PIN = 4;
+  static const int DHT_TYPE = DHT22;
+  static const unsigned long READ_INTERVAL = 2000;
+  static const unsigned long RETRY_INTERVAL = 5000;
+  static const uint8_t MAX_RETRIES = 3;
 };
 
 extern PeripheryManager_ &PeripheryManager;

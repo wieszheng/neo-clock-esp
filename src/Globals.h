@@ -11,22 +11,22 @@
 #define NUM_LEDS (MATRIX_WIDTH * MATRIX_HEIGHT)
 
 // INMP441 I2S 麦克风配置
-#define I2S_WS            14    // LRCLK (Word Select)
-#define I2S_SD            15    // SDIN (Serial Data)
-#define I2S_SCK           13    // BCLK (Bit Clock)
-#define I2S_PORT          I2S_NUM_0
-#define I2S_SAMPLE_RATE   40000
-#define I2S_SAMPLE_BITS   16
-#define I2S_READ_LEN      (2 * 1024)
-#define I2S_CHANNEL_NUM   1
-#define I2S_FORMAT        I2S_CHANNEL_FMT_ONLY_LEFT
+#define I2S_WS 14  // LRCLK (Word Select)
+#define I2S_SD 15  // SDIN (Serial Data)
+#define I2S_SCK 13 // BCLK (Bit Clock)
+#define I2S_PORT I2S_NUM_0
+#define I2S_SAMPLE_RATE 40000
+#define I2S_SAMPLE_BITS 16
+#define I2S_READ_LEN (2 * 1024)
+#define I2S_CHANNEL_NUM 1
+#define I2S_FORMAT I2S_CHANNEL_FMT_ONLY_LEFT
 
 // FFT 配置
-#define FFT_SAMPLES       1024
+#define FFT_SAMPLES 1024
 #define FFT_SAMPLING_FREQ 40000
-#define FFT_AMPLITUDE     1000
-#define FFT_NOISE         500
-#define FFT_NUM_BANDS     32
+#define FFT_AMPLITUDE 1000
+#define FFT_NOISE 500
+#define FFT_NUM_BANDS 32
 
 extern bool AP_MODE;
 
@@ -49,6 +49,7 @@ extern bool SHOW_TEMP;
 extern bool SHOW_HUM;
 extern bool SHOW_WEATHER;
 extern bool SHOW_WIND;
+extern bool SHOW_SPECTRUM;
 
 // 当前应用
 extern String CURRENT_APP;
@@ -69,7 +70,6 @@ extern String DATE_WEEKDAY_INACTIVE_COLOR;
 extern String TEMP_COLOR;
 extern String HUM_COLOR;
 extern String WIND_COLOR;
-
 
 // 应用图标配置
 extern String TIME_ICON;
@@ -92,7 +92,6 @@ extern int TEMP_POSITION;
 extern int HUM_POSITION;
 extern int WEATHER_POSITION;
 extern int WIND_POSITION;
-
 
 // 传感器数据
 // 室内温湿度(来自DHT22传感器)
@@ -117,7 +116,6 @@ extern int WEATHER_WIND_DIR;
 extern unsigned long WEATHER_SUNRISE;
 extern unsigned long WEATHER_SUNSET;
 extern int WEATHER_COD;
-
 
 void saveSettings();
 void loadSettings();

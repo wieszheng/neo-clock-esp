@@ -65,7 +65,16 @@ void PeripheryManager_::initMic() {
   }
 
   initI2S();
-  Serial.println("[Periphery] I2S 麦克风初始化完成");
+
+  // 创建互斥锁
+  _audioMutex = xSemaphoreCreateMutex();
+
+  // 启动音频处理任务 (Core 0, 优先级 1)
+  // 8192Stack深度以确保足够空间
+  xTaskCreatePinnedToCore(audioTask, "AudioTask", 8192, this, 1,
+                          &_audioTaskHandle, 0);
+
+  Serial.println("[Periphery] I2S 麦克风初始化完成 (异步任务已启动)");
 }
 
 void PeripheryManager_::initI2S() {
@@ -100,72 +109,134 @@ void PeripheryManager_::initI2S() {
               I2S_CHANNEL_MONO);
 }
 
-bool PeripheryManager_::getSpectrumData(uint8_t *outputBands, int numBands) {
-  if (!vReal || !vImag)
-    return false;
+// 静态任务入口
+void PeripheryManager_::audioTask(void *pvParameters) {
+  PeripheryManager_ *instance = (PeripheryManager_ *)pvParameters;
+  while (true) {
+    instance->processAudio();
+    // 简单让渡，防止看门狗 (通常 i2s_read 会阻塞足够时间)
+    vTaskDelay(1);
+  }
+}
 
-  // 读取 I2S 数据
+// 实际音频处理循环 (运行在 AudioTask 中)
+void PeripheryManager_::processAudio() {
+  if (!vReal || !vImag) {
+    vTaskDelay(100);
+    return;
+  }
+
   size_t bytesRead = 0;
   int16_t i2sBuffer[FFT_SAMPLES];
 
-  // 尝试读取，如果超时或失败则返回
-  // 使用 portMAX_DELAY 阻塞直到填满缓冲区 (约 25ms @ 40kHz)
+  // 1. 读取 I2S (阻塞等待)
+  // 使用 portMAX_DELAY 确保读满缓冲区
   esp_err_t err = i2s_read(I2S_PORT, (void *)i2sBuffer, sizeof(i2sBuffer),
-                           &bytesRead, 100 / portTICK_PERIOD_MS);
+                           &bytesRead, portMAX_DELAY);
 
   if (err != ESP_OK || bytesRead != sizeof(i2sBuffer)) {
-    return false;
+    return; // 读取失败
   }
 
-  // 填充 FFT 输入
+  // 2. 填充并加窗
   for (int i = 0; i < FFT_SAMPLES; i++) {
     vReal[i] = (double)i2sBuffer[i];
     vImag[i] = 0;
   }
 
-  // FFT 计算
-  // arduinoFFT v1.x API
+  // 加窗减少频谱泄漏
   FFT.Windowing(vReal, FFT_SAMPLES, FFT_WIN_TYP_HAMMING, FFT_FORWARD);
+
+  // 3. FFT 计算
   FFT.Compute(vReal, vImag, FFT_SAMPLES, FFT_FORWARD);
   FFT.ComplexToMagnitude(vReal, vImag, FFT_SAMPLES);
 
-  // 分频段处理 (简单的线性或对数分箱)
-  // 忽略直流分量 (i=0) 和极低频
-  int step = (FFT_SAMPLES / 2) / numBands;
+  // 4. 分频段处理 (对数映射优化)
+  // 频率范围: 0 ~ 20kHz
+  // 关注范围: ~60Hz 到 ~14kHz
+  // 分箱策略: Logarithmic
 
-  for (int i = 0; i < numBands; i++) {
+  const double samplingFreq = I2S_SAMPLE_RATE;
+
+  uint8_t tempBands[FFT_NUM_BANDS];
+
+  for (int i = 0; i < FFT_NUM_BANDS; i++) {
+    // 简单的对数分布计算
+    // Low bound of band i
+    // range 2..FFT_SAMPLES/2
+
+    // 算法: 使用 pow 映射 i (0..31) 到 bin index
+    // 比如 32个频段，我们希望涵盖 bin 2 到 bin 256 (因高频通常能量低且bin多)
+
+    int startBin =
+        (int)(2.0 * pow((FFT_SAMPLES / 4.0) / 2.0, (double)i / FFT_NUM_BANDS));
+    int endBin = (int)(2.0 * pow((FFT_SAMPLES / 4.0) / 2.0,
+                                 (double)(i + 1) / FFT_NUM_BANDS));
+
+    if (endBin <= startBin)
+      endBin = startBin + 1;
+    if (endBin > FFT_SAMPLES / 2)
+      endBin = FFT_SAMPLES / 2;
+
     double sum = 0;
     int count = 0;
 
-    // 简单线性平均（为了更好的效果，通常建议对数频率映射）
-    // 这里为了性能先用线性
-    for (int j = 0; j < step; j++) {
-      int bin = 2 + i * step + j; // 从第2个bin开始 (忽略 DC 和 <40Hz)
-      if (bin < FFT_SAMPLES / 2) {
-        sum += vReal[bin];
-        count++;
-      }
+    for (int j = startBin; j < endBin; j++) {
+      sum += vReal[j];
+      count++;
     }
 
     if (count > 0)
       sum /= count;
 
-    // 映射幅度到 0-255 (或矩阵高度)
-    // 这里的 divisor 这里的 divisor 需要根据实际麦克风灵敏度调整
-    // 假设 noise gate = FFT_NOISE
+    // 噪声门限
     if (sum < FFT_NOISE)
       sum = 0;
     else
       sum -= FFT_NOISE;
 
-    double val = (sum / FFT_AMPLITUDE) * 255.0; // 归一化
+    // 幅度映射
+    double val = (sum / FFT_AMPLITUDE) * 255.0;
+
+    // 简单的非线性增益 (让小声音更明显)
+    // val = pow(val / 255.0, 0.8) * 255.0;
+
     if (val > 255.0)
       val = 255.0;
-
-    outputBands[i] = (uint8_t)val;
+    tempBands[i] = (uint8_t)val;
   }
 
-  return true;
+  // 5. 更新共享数据 (互斥锁保护)
+  if (xSemaphoreTake(_audioMutex, 10 / portTICK_PERIOD_MS) == pdTRUE) {
+    memcpy(_sharedBands, tempBands, FFT_NUM_BANDS);
+    xSemaphoreGive(_audioMutex);
+  }
+}
+
+// 主线程获取数据 (非阻塞)
+bool PeripheryManager_::getSpectrumData(uint8_t *outputBands, int numBands) {
+  if (!_audioMutex)
+    return false;
+
+  bool success = false;
+  if (xSemaphoreTake(_audioMutex, 0) == pdTRUE) { // 立即尝试获取，不等待
+    // 如果请求数量不同，进行安全拷贝
+    int count = (numBands < FFT_NUM_BANDS) ? numBands : FFT_NUM_BANDS;
+    memcpy(outputBands, _sharedBands, count);
+
+    // 如果请求更多，填充0
+    if (numBands > count) {
+      memset(outputBands + count, 0, numBands - count);
+    }
+
+    xSemaphoreGive(_audioMutex);
+    success = true;
+  }
+
+  // 如果获取锁失败，outputBands 保持不变（上一帧数据），防止闪烁
+  // 或者可以在这里返回 false，由上层决定
+
+  return success;
 }
 
 void PeripheryManager_::tick() {

@@ -22,8 +22,6 @@ private:
 
   // I2S 配置
   void initI2S();
-  void sampleAudio();
-  void computeFFT();
 
   // DHT22实例
   DHT *dht;
@@ -39,6 +37,14 @@ private:
   // 音频数据缓存
   double *vReal;
   double *vImag;
+
+  // 异步任务相关
+  TaskHandle_t _audioTaskHandle = NULL;
+  SemaphoreHandle_t _audioMutex = NULL;
+  uint8_t _sharedBands[32]; // Max bands
+
+  static void audioTask(void *pvParameters);
+  void processAudio(); // 实际的处理逻辑
 
   // 传感器配置常量
   static const int DHT_PIN = 4;

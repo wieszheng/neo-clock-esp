@@ -9,8 +9,7 @@
 #include <vector>
 
 // 显示状态枚举
-enum DisplayStatus
-{
+enum DisplayStatus {
   DISPLAY_NORMAL = 0,    // 正常应用显示
   DISPLAY_AP_MODE,       // AP 配网模式 - 显示热点信息
   DISPLAY_CONNECTING,    // WiFi 连接中动画
@@ -18,8 +17,7 @@ enum DisplayStatus
   DISPLAY_CONNECT_FAILED // 连接失败提示
 };
 
-class DisplayManager_
-{
+class DisplayManager_ {
 private:
   // Liveview 相关成员变量
   CRGB *_liveviewLeds;
@@ -42,16 +40,17 @@ private:
   uint32_t _calculateCRC32(byte *data, size_t length);
 
   // ===== 状态显示相关 =====
-  DisplayStatus _displayStatus;
-  String _statusLine1;            // 主显示文字
-  String _statusLine2;            // 副显示文字 (滚动)
-  int16_t _scrollX;               // 滚动位置
-  int16_t _scrollTextWidth;       // 滚动文字像素宽度
-  unsigned long _lastScrollTime;  // 上次滚动时间
-  unsigned long _statusStartTime; // 状态开始时间
-  uint8_t _animFrame;             // 动画帧计数
-  unsigned long _lastAnimTime;    // 上次动画帧时间
-  uint16_t _statusColor;          // 状态文字颜色
+  struct DisplayState {
+    DisplayStatus status = DISPLAY_NORMAL;
+    String line1;                // 主显示文字
+    String line2;                // 副显示文字 (滚动)
+    int16_t scrollX = 0;         // 滚动位置
+    int16_t scrollTextWidth = 0; // 滚动文字像素宽度
+    unsigned long lastScrollTime = 0;
+    unsigned long startTime = 0;
+    uint8_t animFrame = 0;
+    unsigned long lastAnimTime = 0;
+  } _state;
 
   // 状态画面渲染方法
   void _renderAPMode();
@@ -107,7 +106,7 @@ public:
   /**
    * 获取当前显示状态
    */
-  DisplayStatus getDisplayStatus() const { return _displayStatus; }
+  DisplayStatus getDisplayStatus() const { return _state.status; }
 };
 extern DisplayManager_ &DisplayManager;
 

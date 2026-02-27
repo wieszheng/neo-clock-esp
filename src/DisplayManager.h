@@ -19,26 +19,6 @@ enum DisplayStatus {
 
 class DisplayManager_ {
 private:
-  // Liveview 相关成员变量
-  CRGB *_liveviewLeds;
-  uint16_t _liveviewInterval;
-  unsigned long _liveviewLastUpdate;
-  void (*_liveviewCallback)(const char *, size_t);
-
-  // Liveview 缓冲区大小：前缀(3) + 像素数据(256*3) = 771
-  static const size_t _LIVEVIEW_PREFIX_LENGTH = 3;
-  static const size_t _LIVEVIEW_BUFFER_LENGTH =
-      _LIVEVIEW_PREFIX_LENGTH + MATRIX_HEIGHT * MATRIX_WIDTH * 3;
-
-  char _liveviewBuffer[_LIVEVIEW_BUFFER_LENGTH + 1];
-  uint32_t _lastChecksum;
-
-  static const char _LIVEVIEW_PREFIX[];
-
-  // Liveview 内部方法
-  void _fillLiveviewBuffer();
-  uint32_t _calculateCRC32(byte *data, size_t length);
-
   // ===== 状态显示相关 =====
   struct DisplayState {
     DisplayStatus status = DISPLAY_NORMAL;
@@ -90,9 +70,6 @@ public:
   void selectButton();
   void rightButton();
 
-  // Liveview 公开方法
-  void setLiveviewCallback(void (*func)(const char *, size_t));
-
   // ===== 状态显示公开方法 =====
   /**
    * 设置显示状态
@@ -108,6 +85,7 @@ public:
    */
   DisplayStatus getDisplayStatus() const { return _state.status; }
 };
+
 extern DisplayManager_ &DisplayManager;
 
 #endif

@@ -11,6 +11,7 @@ uint8_t BRIGHTNESS = 70;
 uint8_t MATRIX_FPS = 30;
 bool MATRIX_OFF = false;
 bool AUTO_TRANSITION = true;
+bool AUTO_BRIGHTNESS = false; // LDR 光敏电阵自动亮度，默认关闭
 int MATRIX_LAYOUT = 5;
 
 uint16_t TIME_PER_APP = 5000;
@@ -95,12 +96,12 @@ unsigned long WEATHER_SUNRISE = 0;
 unsigned long WEATHER_SUNSET = 0;
 int WEATHER_COD = 0;
 
-void loadSettings()
-{
+void loadSettings() {
   preferences.begin("neo-clock", true); // 只读模式加载
 
   TIME_PER_APP = preferences.getUInt("appTime", 5000);
   BRIGHTNESS = preferences.getUChar("brightness", 70);
+  AUTO_BRIGHTNESS = preferences.getBool("autoBright", false);
   AUTO_TRANSITION = preferences.getBool("autoTrans", true);
   SHOW_WEEKDAY = preferences.getBool("showWeek", true);
   SHOW_TIME = preferences.getBool("showTime", true);
@@ -154,12 +155,12 @@ void loadSettings()
   Serial.printf("日期格式: %s\n", DATE_FORMAT.c_str());
 }
 
-void saveSettings()
-{
+void saveSettings() {
   preferences.begin("neo-clock", false); // 读写模式保存
 
   preferences.putUInt("appTime", TIME_PER_APP);
   preferences.putUChar("brightness", BRIGHTNESS);
+  preferences.putBool("autoBright", AUTO_BRIGHTNESS);
   preferences.putBool("autoTrans", AUTO_TRANSITION);
   preferences.putBool("showWeek", SHOW_WEEKDAY);
   preferences.putBool("showTime", SHOW_TIME);

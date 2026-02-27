@@ -46,7 +46,9 @@ struct MatrixDisplayUiState {
   int ticksSinceLastStateSwitch = 0; ///< 从上次状态切换以来经过的 tick 数
   int8_t appTransitionDirection = 1; ///< 切换方向 (+1=正向, -1=反向)
   bool manuelControll = false;       ///< 是否处于手动控制模式
-  unsigned long lastUpdate = 0;      ///< 上次 update() 调用的时间戳
+  unsigned long lastUpdate =
+      0; ///< 上次 update() 调用的时间戳（unsigned 防溢出）
+  int cachedNextApp = -1; ///< 过渡开始时锁定的目标 App 索引，-1=未锁定
 };
 
 // ==================================================================
@@ -113,16 +115,18 @@ private:
   int nextAppNumber; ///< 手动指定的下一应用 (-1=未指定)
   int8_t lastTransitionDirection; ///< 手动控制前的方向（用于恢复）
   bool setAutoTransition;         ///< 是否启用自动轮播
+  int _enabledAppCount = 0; ///< 缓存的已启用 App 数量，避免每帧遍历
 
   // 覆盖层
   OverlayCallback *overlayFunctions; ///< 覆盖层回调数组
   uint8_t overlayCount;              ///< 覆盖层数量
 
   // --- 内部方法 ---
-  int getNextAppNumber(); ///< 计算下一应用索引
+  int getNextAppNumber(); ///< 计算下一应用索引（有副作用，仅在过渡开始时调用一次）
   void drawApp();         ///< 渲染当前/过渡中的应用
   void drawOverlays();    ///< 渲染覆盖层
   void tick();            ///< 状态机推进 + 绘制一帧
+  void _rebuildEnabledCount(); ///< 预计算并缓存 enabledCount [Fix3]
 
 public:
   MatrixDisplayUi(FastLED_NeoMatrix *matrix);

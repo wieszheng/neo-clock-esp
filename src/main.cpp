@@ -1,4 +1,5 @@
 #include "DisplayManager.h"
+#include "Liveview.h"
 #include "PeripheryManager.h"
 #include "ServerManager.h"
 #include "WeatherManager.h"
@@ -33,6 +34,11 @@ void setup() {
   Serial.println("加载设置...");
   loadSettings();
 
+  // 同步 LDR 自动亮度设置（loadSettings 已恢复 AUTO_BRIGHTNESS）
+  if (AUTO_BRIGHTNESS) {
+    PeripheryManager.setAutoBrightness(true);
+  }
+
   // ========================================
   // Web 配网管理器 (核心！)
   // 自动处理：已保存WiFi凭据→尝试连接→失败则启动AP配网
@@ -56,7 +62,7 @@ void setup() {
 
   // 初始化 Liveview
   Serial.println("初始化 Liveview...");
-  DisplayManager.setLiveviewCallback([](const char *data, size_t length) {
+  Liveview.setCallback([](const char *data, size_t length) {
     if (WebConfigManager.isConnected()) {
       ServerManager.sendLiveviewData(data, length);
     }
@@ -91,14 +97,22 @@ void loop() {
   // 配网管理器始终需要 tick（处理HTTP请求、DNS、断线重连等）
   WebConfigManager.tick();
 
-  // 显示管理器始终 tick
+  // 1. 渲染当前帧到 leds[]
   DisplayManager.tick();
+
+  // 2. 立即采样 leds[]（纯内存操作，≈几十μs，不阻塞渲染）
+  Liveview.tick();
 
   // 外设管理器始终 tick
   PeripheryManager.tick();
 
-  // WebSocket 仅在连接 WiFi 后才处理
+  // 3. WebSocket 收包处理（ws->loop），让 TCP 内核缓冲区尽量腾空
   if (WebConfigManager.isConnected()) {
     ServerManager.tick();
+  }
+
+  // 4. 发送采样帧（在 ws->loop() 之后，TCP 缓冲区最宽裕，阻塞概率最低）
+  if (WebConfigManager.isConnected()) {
+    Liveview.flush();
   }
 }

@@ -1,3 +1,15 @@
+/**
+ * @file WebConfigManager.cpp
+ * @brief WiFi 配网管理器实现 — AP 模式、DNS、HTTP 服务器
+ *
+ * 本文件实现：
+ *   - WiFi 连接管理与自动重连
+ *   - AP 模式启动与 Captive Portal
+ *   - HTTP 路由处理
+ *   - WiFi 凭据持久化存储
+ *   - 配网 HTML 页面生成
+ */
+
 #include "WebConfigManager.h"
 #include "DisplayManager.h"
 #include "Globals.h"
@@ -16,6 +28,11 @@ WebConfigManager_ &WebConfigManager = WebConfigManager_::getInstance();
 // 初始化与主循环
 // =====================================================
 
+/**
+ * @brief 初始化配网管理器
+ *
+ * 检查已保存凭据 → 尝试连接 → 失败则启动 AP 配网
+ */
 void WebConfigManager_::setup()
 {
     connState = WIFI_STATE_IDLE;

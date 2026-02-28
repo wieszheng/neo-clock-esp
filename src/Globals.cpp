@@ -1,7 +1,19 @@
+/**
+ * @file Globals.cpp
+ * @brief 全局变量定义与设置存储/加载实现
+ *
+ * 本文件实现：
+ *   - 全局变量的默认值初始化
+ *   - 使用 Preferences 库将配置保存到 Flash
+ *   - 从 Flash 加载已保存的配置
+ */
+
 #include "Globals.h"
 #include <Preferences.h>
 
+// ==================================================================
 // Preferences 对象用于保存和加载设置
+// ==================================================================
 static Preferences preferences;
 
 bool EnableLiveview = false;
@@ -96,6 +108,16 @@ unsigned long WEATHER_SUNRISE = 0;
 unsigned long WEATHER_SUNSET = 0;
 int WEATHER_COD = 0;
 
+// ==================================================================
+// 设置存储函数
+// ==================================================================
+
+/**
+ * @brief 从 Flash 加载配置
+ *
+ * 使用 Preferences 库以只读模式打开命名空间 "neo-clock"，
+ * 加载所有已保存的配置参数，并为未保存的参数使用默认值。
+ */
 void loadSettings() {
   preferences.begin("neo-clock", true); // 只读模式加载
 
@@ -155,6 +177,12 @@ void loadSettings() {
   Serial.printf("日期格式: %s\n", DATE_FORMAT.c_str());
 }
 
+/**
+ * @brief 保存配置到 Flash
+ *
+ * 使用 Preferences 库以读写模式打开命名空间 "neo-clock"，
+ * 将当前的所有配置参数保存到 Flash 存储器。
+ */
 void saveSettings() {
   preferences.begin("neo-clock", false); // 读写模式保存
 

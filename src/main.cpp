@@ -1,3 +1,16 @@
+/**
+ * @file main.cpp
+ * @brief NeoClock 矩阵时钟主程序
+ *
+ * 本文件实现：
+ *   - 系统初始化 (LittleFS、外设、显示、网络等)
+ *   - 主循环调度
+ *   - 各模块协调 (显示、传感器、通信)
+ *
+ * 硬件平台: ESP32
+ * 矩阵规格: 32×8 LED (WS2812B/SK6812)
+ */
+
 #include "DisplayManager.h"
 #include "Liveview.h"
 #include "PeripheryManager.h"
@@ -10,8 +23,30 @@
 
 #include "Apps.h"
 
+// ==================================================================
+// WebSocket 服务器 (端口 81)
+// ==================================================================
 WebSocketsServer webSocket(81);
 
+// ==================================================================
+// 系统初始化
+// ==================================================================
+
+/**
+ * @brief 系统初始化函数
+ *
+ * 初始化顺序：
+ *   1. 串口通信
+ *   2. LittleFS 文件系统
+ *   3. 外设 (DHT22、LDR)
+ *   4. LED 矩阵显示
+ *   5. 加载配置
+ *   6. WiFi 配网管理器 (核心)
+ *   7. 天气管理器
+ *   8. 应用加载
+ *   9. WebSocket 服务器
+ *   10. Liveview 实时预览
+ */
 void setup() {
   Serial.begin(115200);
   Serial.println("\n\n=== NeoClock 矩阵时钟启动 ===");
@@ -93,6 +128,25 @@ void setup() {
   Serial.println("========================================\n");
 }
 
+// ==================================================================
+// 主循环
+// ==================================================================
+
+/**
+ * @brief 主循环函数
+ *
+ * 循环顺序 (保证性能和正确性)：
+ *   1. WebConfigManager.tick() - 始终需要 (处理配网、DNS、重连等)
+ *   2. DisplayManager.tick() - 渲染当前帧到 leds[]
+ *   3. Liveview.tick() - 采样 leds[] (纯内存操作，极快)
+ *   4. PeripheryManager.tick() - 传感器读取、LDR 更新
+ *   5. ServerManager.tick() - WebSocket 收包处理 (ws->loop())
+ *   6. Liveview.flush() - 发送采样帧 (TCP 缓冲区最宽裕时)
+ *
+ * 性能优化：
+ *   - Liveview 采样在 ws->loop() 之前，避免网络延迟影响渲染
+ *   - Liveview.flush() 在 ws->loop() 之后，此时 TCP 缓冲区腾空，阻塞概率最低
+ */
 void loop() {
   // 配网管理器始终需要 tick（处理HTTP请求、DNS、断线重连等）
   WebConfigManager.tick();

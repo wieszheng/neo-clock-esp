@@ -1,3 +1,15 @@
+/**
+ * @file ServerManager.cpp
+ * @brief WebSocket 服务器实现 — 远程控制与数据广播
+ *
+ * 本文件实现：
+ *   - WebSocket 事件处理 (连接、断开、消息)
+ *   - JSON 命令解析与执行
+ *   - 配置和状态广播
+ *   - 图标上传处理
+ *   - Liveview 实时预览数据推送
+ */
+
 #include "ServerManager.h"
 #include "Apps.h"
 #include "DisplayManager.h"
@@ -411,6 +423,14 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
   }
 }
 
+/**
+ * @brief 发送 ACK/错误响应
+ * @param num 客户端 ID
+ * @param requestId 请求 ID
+ * @param action 动作名称
+ * @param ok 是否成功
+ * @param message 错误消息 (失败时)
+ */
 void ServerManager_::sendAck(uint8_t num, const String &requestId,
                              const String &action, bool ok,
                              const String &message) {
@@ -427,6 +447,11 @@ void ServerManager_::sendAck(uint8_t num, const String &requestId,
   ws->sendTXT(num, output);
 }
 
+/**
+ * @brief 广播当前配置到所有客户端
+ *
+ * 发送所有应用的配置（启用状态、位置、颜色、图标等）
+ */
 void ServerManager_::broadcastConfig() {
   StaticJsonDocument<2048> doc;
   doc["type"] = "config";
@@ -508,6 +533,11 @@ void ServerManager_::broadcastConfig() {
   ws->broadcastTXT(output);
 }
 
+/**
+ * @brief 广播当前状态到所有客户端
+ *
+ * 发送温湿度、亮度、自动亮度、当前应用、电源状态、自动播放等
+ */
 void ServerManager_::broadcastStats() {
   StaticJsonDocument<512> doc;
   doc["type"] = "stats";
@@ -533,13 +563,24 @@ void ServerManager_::broadcastStats() {
   ws->broadcastTXT(output);
 }
 
-// 发送 liveview 数据（由 Liveview 类回调调用）
+/**
+ * @brief 发送 Liveview 实时预览数据
+ * @param data 像素数据
+ * @param length 数据长度
+ *
+ * 由 Liveview 类回调调用，通过 WebSocket 广播二进制数据
+ */
 void ServerManager_::sendLiveviewData(const char *data, size_t length) {
   if (ws->connectedClients() > 0 && EnableLiveview) {
     ws->broadcastBIN((uint8_t *)data, length);
   }
 }
 
+/**
+ * @brief 通知所有客户端事件
+ * @param event 事件类型
+ * @param data 事件数据
+ */
 void ServerManager_::notifyClients(const String &event, const String &data) {
   StaticJsonDocument<256> doc;
   doc["type"] = event;
@@ -550,7 +591,11 @@ void ServerManager_::notifyClients(const String &event, const String &data) {
   ws->broadcastTXT(output);
 }
 
-// RGB565转十六进制颜色字符串
+/**
+ * @brief RGB565 转换为十六进制颜色字符串
+ * @param rgb565 RGB565 颜色值
+ * @return HEX 格式颜色字符串 (如 "#FFFFFF")
+ */
 String ServerManager_::rgb565ToHex(uint16_t rgb565) {
   // RGB565格式: RRRRR GGGGGG BBBBB
   uint8_t r = ((rgb565 >> 11) & 0x1F) << 3; // 5位红色，扩展到8位
@@ -562,7 +607,12 @@ String ServerManager_::rgb565ToHex(uint16_t rgb565) {
   return String(hex);
 }
 
-// 发送图标列表（从 LittleFS /icons 目录读取）
+/**
+ * @brief 发送用户图标列表
+ * @param num 客户端 ID
+ *
+ * 从 LittleFS /icons 目录读取所有 .anim 文件并发送
+ */
 void ServerManager_::sendIconList(uint8_t num) {
   Serial.println("[WS] Scanning LittleFS /icons directory...");
 
@@ -606,6 +656,10 @@ void ServerManager_::sendIconList(uint8_t num) {
   ws->sendTXT(num, output);
 }
 
+/**
+ * @brief 初始化 WebSocket 服务器
+ * @param websocket WebSocket 服务器实例指针
+ */
 void ServerManager_::setup(WebSocketsServer *websocket) {
   this->ws = websocket;
 
@@ -618,4 +672,7 @@ void ServerManager_::setup(WebSocketsServer *websocket) {
   Serial.println("WebSocket服务器已启动 (端口81)");
 }
 
+/**
+ * @brief 主循环 - 处理 WebSocket 事件
+ */
 void ServerManager_::tick() { ws->loop(); }

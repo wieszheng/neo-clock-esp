@@ -1,3 +1,15 @@
+/**
+ * @file DisplayManager.cpp
+ * @brief 显示管理器实现 — LED 矩阵显示、状态系统渲染
+ *
+ * 本文件实现：
+ *   - FastLED 矩阵初始化与配置
+ *   - 多种矩阵布局支持 (32x8, 4x1拼等)
+ *   - 状态画面渲染 (AP 配网、WiFi 连接动画等)
+ *   - 应用列表管理与切换
+ *   - 文字渲染与滚动显示
+ */
+
 #include "DisplayManager.h"
 #include "Apps.h"
 #include "Liveview.h"
@@ -7,16 +19,27 @@
 // ==================================================================
 // 硬件实例
 // ==================================================================
+
+/// LED 缓冲区 (FastLED 格式)
 CRGB leds[NUM_LEDS];
 
+/// 矩阵显示实例 (默认 4x1 拼接布局)
 FastLED_NeoMatrix *matrix =
     new FastLED_NeoMatrix(leds, 8, 8, 4, 1,
                           NEO_MATRIX_TOP + NEO_MATRIX_LEFT + NEO_MATRIX_ROWS +
                               NEO_MATRIX_PROGRESSIVE);
 
+/// UI 引擎实例
 MatrixDisplayUi *ui = new MatrixDisplayUi(matrix);
 
-// 用于将 Web 逻辑坐标映射为物理 FastLED 索引（处理 Zigzag, 蛇形布局等）
+/**
+ * @brief 将 Web 逻辑坐标映射为物理 FastLED 索引
+ *
+ * 处理 Zigzag、蛇形等复杂矩阵布局的坐标转换
+ * @param x 逻辑 X 坐标
+ * @param y 逻辑 Y 坐标
+ * @return 物理索引
+ */
 static uint16_t liveviewPixelMap(int16_t x, int16_t y) {
   if (matrix)
     return matrix->XY(x, y);
@@ -36,6 +59,12 @@ DisplayManager_ &DisplayManager = DisplayManager.getInstance();
 // ==================================================================
 // 初始化
 // ==================================================================
+
+/**
+ * @brief 初始化显示管理器
+ *
+ * 配置 FastLED、矩阵参数、UI 引擎，并初始化 Liveview 模块
+ */
 void DisplayManager_::setup() {
   FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
   setMatrixLayout(MATRIX_LAYOUT);
@@ -57,21 +86,53 @@ void DisplayManager_::setup() {
 // ==================================================================
 // 亮度与颜色
 // ==================================================================
+
+/**
+ * @brief 设置显示亮度
+ * @param bri 亮度值 (0-255)，考虑 MATRIX_OFF 状态
+ */
 void DisplayManager_::setBrightness(uint8_t bri) {
   matrix->setBrightness(MATRIX_OFF ? 0 : bri);
 }
+
+/**
+ * @brief 设置文字颜色
+ * @param color RGB565 颜色值
+ */
 void DisplayManager_::setTextColor(uint16_t color) {
   matrix->setTextColor(color);
 }
+
+/**
+ * @brief 设置矩阵电源状态
+ * @param on true=开启, false=关闭
+ */
 void DisplayManager_::setMatrixState(bool on) {
   MATRIX_OFF = !on;
   setBrightness(BRIGHTNESS);
 }
+
+/**
+ * @brief 恢复默认文字颜色
+ */
 void DisplayManager_::defaultTextColor() { setTextColor(TEXTCOLOR_565); }
 
 // ==================================================================
 // 矩阵布局
 // ==================================================================
+
+/**
+ * @brief 设置矩阵布局模式
+ *
+ * 支持多种硬件拼接方式：
+ *   - 0: 32x8 单块 Col+Zigzag
+ *   - 2: 32x8 单块 Row+Zigzag
+ *   - 3: 32x8 单块 Bottom+Col+Prog
+ *   - 4: 4x1 拼 Row+Zigzag
+ *   - 5: 4x1 拼 Row+Prog (默认)
+ *
+ * @param layout 布局模式 (0-5)
+ */
 void DisplayManager_::setMatrixLayout(int layout) {
   delete matrix;
 
@@ -127,6 +188,14 @@ void DisplayManager_::setMatrixLayout(int layout) {
 // ==================================================================
 // 主循环
 // ==================================================================
+
+/**
+ * @brief 主循环 - 渲染当前帧
+ *
+ * 根据 _state.status 决定渲染内容：
+ *   - DISPLAY_NORMAL: 正常应用显示，由 ui->update() 处理
+ *   - 其他状态: 渲染状态画面 (AP 配网、连接动画等)
+ */
 void DisplayManager_::tick() {
   if (_state.status != DISPLAY_NORMAL) {
     matrix->clear();
@@ -155,9 +224,21 @@ void DisplayManager_::tick() {
 // ==================================================================
 // 基础绘制
 // ==================================================================
+
+/// 清空显示缓冲区
 void DisplayManager_::clear() { matrix->clear(); }
+
+/// 将缓冲区数据输出到 LED
 void DisplayManager_::show() { matrix->show(); }
 
+/**
+ * @brief 打印文字到指定位置
+ * @param x X 坐标
+ * @param y Y 坐标
+ * @param text 要显示的文字
+ * @param centered 是否居中显示
+ * @param ignoreUppercase 是否忽略转大写
+ */
 void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
                                 bool centered, bool ignoreUppercase) {
   if (centered) {
@@ -186,6 +267,12 @@ void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
 // ==================================================================
 // 设置应用
 // ==================================================================
+
+/**
+ * @brief 应用所有设置到 UI 引擎
+ *
+ * 包括帧率、应用时长、过渡时长、亮度、颜色、自动切换等
+ */
 void DisplayManager_::applyAllSettings() {
   ui->setTargetFPS(MATRIX_FPS);
   ui->setTimePerApp(TIME_PER_APP);
@@ -199,6 +286,12 @@ void DisplayManager_::applyAllSettings() {
     ui->disablesetAutoTransition();
 }
 
+/**
+ * @brief 加载内置应用列表
+ *
+ * 将时间、日期、温度、湿度、天气、风速应用添加到 Apps 列表，
+ * 并按 position 排序
+ */
 void DisplayManager_::loadNativeApps() {
   Apps.clear();
 
@@ -217,6 +310,12 @@ void DisplayManager_::loadNativeApps() {
   ui->setApps(Apps);
 }
 
+/**
+ * @brief 通过 JSON 更新应用列表
+ * @param json JSON 字符串
+ *
+ * 解析 JSON 并更新应用显示开关 (show)
+ */
 void DisplayManager_::updateAppVector(const char *json) {
   DynamicJsonDocument doc(1024);
   auto error = deserializeJson(doc, json);
@@ -242,6 +341,12 @@ void DisplayManager_::updateAppVector(const char *json) {
   loadNativeApps();
 }
 
+/**
+ * @brief 通过 JSON 更新系统设置
+ * @param json JSON 字符串
+ *
+ * 解析 JSON 并更新应用时长、过渡时长、亮度、帧率、自动切换等
+ */
 void DisplayManager_::setNewSettings(const char *json) {
   DynamicJsonDocument doc(512);
   auto error = deserializeJson(doc, json);

@@ -1,3 +1,19 @@
+/**
+ * @file Liveview.cpp
+ * @brief 实时预览模块实现 — 将 LED 矩阵数据推送到 WebSocket
+ *
+ * 本文件实现：
+ *   - 双阶段设计 (tick 采样 + flush 发送)
+ *   - CRC32 变化检测，避免重复发送
+ *   - CRC32 查表优化，提升计算速度
+ *   - 像素映射支持 (处理复杂矩阵布局)
+ *
+ * 性能优化：
+ *   - tick() 纯内存操作，~几十μs，不阻塞渲染
+ *   - flush() 放在 ws->loop() 之后调用，TCP 缓冲区最宽裕
+ *   - PROGMEM CRC32 查表，计算速度提升 8 倍
+ */
+
 #include "Liveview.h"
 
 // ==================================================================
@@ -56,6 +72,11 @@ static const uint32_t PROGMEM crc32_table[256] = {
 // ==================================================================
 // 单例
 // ==================================================================
+
+/**
+ * @brief 获取单例实例
+ * @return Liveview_ 单例引用
+ */
 Liveview_ &Liveview_::getInstance() {
   static Liveview_ instance;
   return instance;
@@ -66,11 +87,27 @@ Liveview_ &Liveview = Liveview_::getInstance();
 // ==================================================================
 // 公开接口
 // ==================================================================
+
+/**
+ * @brief 绑定 LED 缓冲区和像素映射函数
+ * @param leds CRGB 缓冲区指针
+ * @param pixelMap 坐标映射函数 (处理复杂矩阵布局)
+ */
 void Liveview_::setLeds(CRGB *leds, PixelMapFunc pixelMap) {
   _leds = leds;
   _pixelMap = pixelMap;
 }
+
+/**
+ * @brief 设置采样间隔
+ * @param ms 采样间隔 (毫秒)，0=禁用
+ */
 void Liveview_::setInterval(uint16_t ms) { _interval = ms; }
+
+/**
+ * @brief 设置数据推送回调函数
+ * @param func 回调函数 (应调用 ws->broadcastBIN 等)
+ */
 void Liveview_::setCallback(void (*func)(const char *, size_t)) {
   _callback = func;
 }
@@ -79,6 +116,13 @@ void Liveview_::setCallback(void (*func)(const char *, size_t)) {
 // 阶段 1：采样（仅内存操作，紧随 DisplayManager.tick() 调用）
 // 耗时：~几十 μs，不含任何 I/O，不会阻塞渲染。
 // ==================================================================
+
+/**
+ * @brief 采样阶段 - 读取 LED 数据到内部缓冲区
+ *
+ * 应紧随 DisplayManager.tick() 调用，保证读到最新帧数据。
+ * 使用 CRC32 检测帧变化，只有变化时才标记需要发送。
+ */
 void Liveview_::tick() {
   if (_interval == 0 || _callback == nullptr || _leds == nullptr)
     return;
@@ -116,6 +160,13 @@ void Liveview_::tick() {
 // 阶段 2：发送（含网络 I/O，放在 ServerManager.tick() 之后调用）
 // ws->loop() 已先跑完，TCP 内核缓冲区通常最宽裕，阻塞概率最低。
 // ==================================================================
+
+/**
+ * @brief 发送阶段 - 执行实际网络发送
+ *
+ * 应放在 ServerManager.tick(ws->loop()) 之后调用，
+ * 此时 TCP 缓冲区最宽裕，阻塞概率最低。
+ */
 void Liveview_::flush() {
   if (!_dirty || _callback == nullptr)
     return;
@@ -128,6 +179,15 @@ void Liveview_::flush() {
 // ==================================================================
 // 内部：CRC32 计算
 // ==================================================================
+
+/**
+ * @brief CRC32 校验和计算
+ * @param data 数据指针
+ * @param length 数据长度
+ * @return CRC32 校验和
+ *
+ * 使用 PROGMEM 查表优化，计算速度提升 8 倍
+ */
 uint32_t Liveview_::_crc32(const byte *data, size_t length) {
   uint32_t crc = 0xFFFFFFFF;
   for (size_t i = 0; i < length; i++) {

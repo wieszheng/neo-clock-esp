@@ -57,12 +57,20 @@ private:
 
   // LDR 配置常量
   // GPIO34 是 ESP32 ADC1_CH6，输入专用引脚，不影响其他外设
-  static const int LDR_PIN = 34;
-  static const unsigned long LDR_INTERVAL = 200; // ms，采样间隔
+  static constexpr int LDR_PIN = 34;
+  static constexpr uint32_t LDR_INTERVAL = 200; // ms，采样间隔
+
+  // 动态 ADC 极值（自动学习环境光线范围）
+  uint16_t _ldrAdcMin = 4095; // 初始为最大可能值，方便向下学习
+  uint16_t _ldrAdcMax = 0;    // 初始为最小可能值，方便向上学习
+  unsigned long _ldrLastDecay = 0;
+  static constexpr uint32_t LDR_DECAY_INTERVAL =
+      60000; // 每分钟衰减一次极值（让范围缓慢收缩，适应新环境）
 
   // 亮度映射范围
-  static const uint8_t LDR_BRIGHT_MIN = 10; // 最暗环境下的最低亮度（防止全灭）
-  static const uint8_t LDR_BRIGHT_MAX = 255; // 最亮环境下的最高亮度
+  static constexpr uint8_t LDR_BRIGHT_MIN =
+      10; // 全暗环境最低亮度（防止完全熄灭）
+  static constexpr uint8_t LDR_BRIGHT_MAX = 255; // 全亮环境最高亮度
 };
 
 extern PeripheryManager_ &PeripheryManager;

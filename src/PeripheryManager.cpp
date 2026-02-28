@@ -45,6 +45,9 @@ void PeripheryManager_::setup() {
   _ldrSampleIdx = 0;
   _ldrSamplesFull = false;
   _ldrLastUpdate = 0;
+  _ldrLastDecay = 0;
+  _ldrAdcMin = 4095;
+  _ldrAdcMax = 0;
   _autoBrightness = false;
   _ldrBrightness = BRIGHTNESS; // 初始值跟随全局设置
 
@@ -134,15 +137,36 @@ void PeripheryManager_::updateLDR() {
     sum += _ldrSamples[i];
   uint16_t avg = (uint16_t)(sum / validCount);
 
-  // 对数映射: ADC 0~4095 → 亮度 LDR_BRIGHT_MIN~LDR_BRIGHT_MAX
-  // log1p(0)=0, log1p(4095)≈8.317
-  // 公式: brightness = MIN + (MAX-MIN) * log1p(avg) / log1p(4095)
-  float logMax = log1pf(4095.0f);
-  float logVal = log1pf((float)avg);
-  float ratio = logVal / logMax; // 0.0 ~ 1.0
+  // 1. 动态学习新的极值（过滤一下可能的偶然毛刺，不过这里有 8
+  // 次滑动平均已经很平滑了）
+  if (avg > _ldrAdcMax)
+    _ldrAdcMax = avg;
+  if (avg < _ldrAdcMin)
+    _ldrAdcMin = avg;
 
+  // 2. 定期让极值缓慢衰减（随时间向中间收拢），以适应跨越明显的昼夜长时环境变化
+  unsigned long now = millis();
+  if (now - _ldrLastDecay >= LDR_DECAY_INTERVAL) {
+    _ldrLastDecay = now;
+    // 每次极值向内收缩 1%，但保证最小的变化量，防止陷入死区
+    if (_ldrAdcMax > _ldrAdcMin) {
+      _ldrAdcMax -= max(1, (int)(_ldrAdcMax * 0.01));
+      _ldrAdcMin += max(1, (int)((4095 - _ldrAdcMin) * 0.01));
+      // 防止交错
+      if (_ldrAdcMin >= _ldrAdcMax) {
+        _ldrAdcMin = _ldrAdcMax - 1;
+      }
+    }
+  }
+
+  // 3. 避免初始极值未完全拉开时引发崩溃（除以0等）
+  if (_ldrAdcMax == _ldrAdcMin) {
+    return;
+  }
+
+  // 4. 将当前 ADC 值根据动态学习到的区间线性映射到对应亮度
   uint8_t brightness =
-      (uint8_t)(LDR_BRIGHT_MIN + ratio * (LDR_BRIGHT_MAX - LDR_BRIGHT_MIN));
+      map(avg, _ldrAdcMin, _ldrAdcMax, LDR_BRIGHT_MIN, LDR_BRIGHT_MAX);
 
   // 滞回：变化超过 3 个亮度单位才更新，避免频繁调整
   if (abs((int)brightness - (int)_ldrBrightness) >= 3) {

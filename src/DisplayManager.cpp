@@ -16,6 +16,13 @@ FastLED_NeoMatrix *matrix =
 
 MatrixDisplayUi *ui = new MatrixDisplayUi(matrix);
 
+// 用于将 Web 逻辑坐标映射为物理 FastLED 索引（处理 Zigzag, 蛇形布局等）
+static uint16_t liveviewPixelMap(int16_t x, int16_t y) {
+  if (matrix)
+    return matrix->XY(x, y);
+  return y * MATRIX_WIDTH + x;
+}
+
 // ==================================================================
 // 单例
 // ==================================================================
@@ -40,7 +47,7 @@ void DisplayManager_::setup() {
   ui->init();
 
   // 初始化 Liveview 模块
-  Liveview.setLeds(leds);
+  Liveview.setLeds(leds, liveviewPixelMap);
   Liveview.setInterval(250);
 
   _state = DisplayState();

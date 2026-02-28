@@ -66,7 +66,10 @@ Liveview_ &Liveview = Liveview_::getInstance();
 // ==================================================================
 // 公开接口
 // ==================================================================
-void Liveview_::setLeds(CRGB *leds) { _leds = leds; }
+void Liveview_::setLeds(CRGB *leds, PixelMapFunc pixelMap) {
+  _leds = leds;
+  _pixelMap = pixelMap;
+}
 void Liveview_::setInterval(uint16_t ms) { _interval = ms; }
 void Liveview_::setCallback(void (*func)(const char *, size_t)) {
   _callback = func;
@@ -91,7 +94,9 @@ void Liveview_::tick() {
 
   for (int y = 0; y < MATRIX_HEIGHT; y++) {
     for (int x = 0; x < MATRIX_WIDTH; x++) {
-      int idx = y * MATRIX_WIDTH + x;
+      uint16_t idx = _pixelMap ? _pixelMap(x, y) : (y * MATRIX_WIDTH + x);
+      if (idx >= (MATRIX_WIDTH * MATRIX_HEIGHT))
+        idx = 0; // 防越界保护
       *ptr++ = _leds[idx].r;
       *ptr++ = _leds[idx].g;
       *ptr++ = _leds[idx].b;

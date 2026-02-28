@@ -22,8 +22,11 @@ class Liveview_ {
 public:
   static Liveview_ &getInstance();
 
-  /** 绑定要读取的 LED 缓冲区（通常就是 FastLED 的 leds 数组） */
-  void setLeds(CRGB *leds);
+  typedef uint16_t (*PixelMapFunc)(int16_t x, int16_t y);
+
+  /** 绑定要读取的 LED 缓冲区，并提供一个将 (x,y)
+   * 转换到数组下标的映射函数，以处理蛇形/回环等复杂矩阵布局 */
+  void setLeds(CRGB *leds, PixelMapFunc pixelMap = nullptr);
 
   /** 设置采样间隔（毫秒，0 = 禁用） */
   void setInterval(uint16_t ms);
@@ -47,6 +50,7 @@ private:
   Liveview_() {}
 
   CRGB *_leds = nullptr;
+  PixelMapFunc _pixelMap = nullptr;
   uint16_t _interval = 250;
   unsigned long _lastSample = 0;
 

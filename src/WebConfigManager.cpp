@@ -848,7 +848,7 @@ const char *WebConfigManager_::getConfigPageHtml()
         /* ===== Buttons ===== */
         .btn {
             width: 100%;
-            padding: 14px;
+            padding: 8px;
             border: none;
             border-radius: var(--radius-sm);
             font-size: 15px;
@@ -864,7 +864,7 @@ const char *WebConfigManager_::getConfigPageHtml()
         .btn-primary {
             background: linear-gradient(135deg, var(--primary), var(--primary-dark));
             color: white;
-            box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+            box-shadow: 0 2px 14px rgba(99,102,241,0.35);
         }
         
         .btn-primary:hover {
@@ -894,7 +894,7 @@ const char *WebConfigManager_::getConfigPageHtml()
         }
         
         .btn-sm {
-            padding: 10px 16px;
+            padding: 4px 16px;
             font-size: 13px;
             width: auto;
         }
@@ -1001,7 +1001,7 @@ const char *WebConfigManager_::getConfigPageHtml()
                 </div>
                 可用网络
                 <button class="btn btn-outline btn-sm" onclick="scanWiFi()" id="scanBtn" style="margin-left:auto">
-                    <span class="btn-text">🔍 扫描</span>
+                    <span class="btn-text">扫描</span>
                     <div class="spinner"></div>
                 </button>
             </div>
@@ -1062,7 +1062,7 @@ const char *WebConfigManager_::getConfigPageHtml()
             <div class="info-row"><span class="info-label">可用内存</span><span class="info-value" id="infoHeap">-</span></div>
             
             <div class="btn-group">
-                <button class="btn btn-outline btn-sm" onclick="restartDevice()">🔄 重启设备</button>
+                <button class="btn btn-outline btn-sm" onclick="restartDevice()">重启设备</button>
             </div>
         </div>
         

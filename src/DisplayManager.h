@@ -159,6 +159,7 @@ public:
    */
   void defaultTextColor();
   void gammaCorrection();
+
   // ==================================================================
   // 设置应用
   // ==================================================================
@@ -168,18 +169,6 @@ public:
 
   /// 加载内置应用列表
   void loadNativeApps();
-
-  /**
-   * @brief 通过 JSON 更新应用列表
-   * @param json JSON 字符串
-   */
-  void updateAppVector(const char *json);
-
-  /**
-   * @brief 通过 JSON 更新系统设置
-   * @param json JSON 字符串
-   */
-  void setNewSettings(const char *json);
 
   // ==================================================================
   // 应用切换

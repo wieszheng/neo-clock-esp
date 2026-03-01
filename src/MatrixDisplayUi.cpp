@@ -41,16 +41,6 @@ FastFramePlayer player2;
 MatrixDisplayUi::MatrixDisplayUi(FastLED_NeoMatrix *matrix)
 {
   this->matrix = matrix;
-  this->updateInterval = 33.33;  // 1000ms / 30 FPS
-  this->ticksPerApp = 150;       // 默认每页 5 秒 (150 ticks × 33ms)
-  this->ticksPerTransition = 15; // 默认过渡 0.5 秒 (15 ticks × 33ms)
-  this->appAnimationDirection = SLIDE_DOWN;
-  this->nextAppNumber = -1;
-  this->lastTransitionDirection = 1;
-  this->setAutoTransition = true;
-  this->overlayFunctions = nullptr;
-  this->overlayCount = 0;
-  this->_enabledAppCount = 0;
 }
 
 /**
@@ -58,10 +48,11 @@ MatrixDisplayUi::MatrixDisplayUi(FastLED_NeoMatrix *matrix)
  */
 void MatrixDisplayUi::init()
 {
-  matrix->begin();
-  matrix->setTextWrap(false);
-  matrix->setBrightness(BRIGHTNESS);
+  this->matrix->begin();
+  this->matrix->setTextWrap(false);
+  this->matrix->setBrightness(BRIGHTNESS);
   this->matrix->setFont(&AwtrixFont);
+
   player1.setMatrix(this->matrix);
   player2.setMatrix(this->matrix);
 }
@@ -279,21 +270,21 @@ void MatrixDisplayUi::drawApp()
   if (apps.empty())
     return;
 
-  switch (state.appState)
+  switch (this->state.appState)
   {
   case IN_TRANSITION:
   {
-    int nextApp = state.cachedNextApp;
+    int nextApp = this->state.cachedNextApp;
     if (nextApp < 0 || nextApp >= (int)apps.size())
-      nextApp = state.currentApp; // 安全回退
+      nextApp = this->state.currentApp; // 安全回退
 
     float progress =
-        (float)state.ticksSinceLastStateSwitch / (float)ticksPerTransition;
+        (float)this->state.ticksSinceLastStateSwitch / (float)this->ticksPerTransition;
 
     int16_t x = 0, y = 0;
     int16_t x1 = 0, y1 = 0;
 
-    switch (appAnimationDirection)
+    switch (this->appAnimationDirection)
     {
     case SLIDE_UP:
       y = -8 * progress;
@@ -307,29 +298,29 @@ void MatrixDisplayUi::drawApp()
       break;
     }
 
-    int8_t dir = state.appTransitionDirection >= 0 ? 1 : -1;
+    int8_t dir = this->state.appTransitionDirection >= 0 ? 1 : -1;
     x *= dir;
     y *= dir;
     x1 *= dir;
     y1 *= dir;
-
+    this->matrix->drawRect(x, y, x1, y1, this->matrix->Color(0, 0, 0));
     // [Fix2] 当前页用 player1，下一页用 player2
-    if (state.currentApp < (int)apps.size())
+    if (this->state.currentApp < (int)this->apps.size())
     {
-      apps[state.currentApp].callback(matrix, &state, x, y, &player1);
+      this->apps[this->state.currentApp].callback(this->matrix, &this->state, x, y, &player1);
     }
-    if (nextApp < (int)apps.size())
+    if (nextApp < (int)this->apps.size())
     {
-      apps[nextApp].callback(matrix, &state, x1, y1, &player2);
+      this->apps[nextApp].callback(this->matrix, &this->state, x1, y1, &player2);
     }
     break;
   }
 
   case FIXED:
     // [Fix2] 固定显示只用 player1
-    if (state.currentApp < (int)apps.size())
+    if (this->state.currentApp < (int)this->apps.size())
     {
-      apps[state.currentApp].callback(matrix, &state, 0, 0, &player1);
+      this->apps[this->state.currentApp].callback(this->matrix, &this->state, 0, 0, &player1);
     }
     break;
   }
@@ -341,68 +332,68 @@ void MatrixDisplayUi::drawApp()
 
 void MatrixDisplayUi::tick()
 {
-  state.ticksSinceLastStateSwitch++;
+  this->state.ticksSinceLastStateSwitch++;
 
-  if (AppCount > 0)
+  if (this->AppCount > 0)
   {
-    switch (state.appState)
+    switch (this->state.appState)
     {
 
     case IN_TRANSITION:
-      if (state.ticksSinceLastStateSwitch >= ticksPerTransition)
+      if (this->state.ticksSinceLastStateSwitch >= this->ticksPerTransition)
       {
         // [Fix1] 直接读缓存，不再二次调用 getNextAppNumber()
-        int nextApp = state.cachedNextApp;
-        if (nextApp < 0 || nextApp >= (int)apps.size())
+        int nextApp = this->state.cachedNextApp;
+        if (nextApp < 0 || nextApp >= (int)this->apps.size())
           nextApp = 0;
 
-        state.appState = FIXED;
-        state.currentApp = nextApp;
-        state.cachedNextApp = -1;
-        state.ticksSinceLastStateSwitch = 0;
+        this->state.appState = FIXED;
+        this->state.currentApp = nextApp;
+        this->state.cachedNextApp = -1;
+        this->state.ticksSinceLastStateSwitch = 0;
 
-        if (state.currentApp < (int)apps.size() &&
-            apps[state.currentApp].duration > 0)
+        if (this->state.currentApp < (int)this->apps.size() &&
+            this->apps[this->state.currentApp].duration > 0)
         {
-          ticksPerApp = (int)((float)apps[state.currentApp].duration /
-                              (float)updateInterval);
+          ticksPerApp = (int)((float)this->apps[this->state.currentApp].duration /
+                              (float)this->updateInterval);
         }
         else
         {
           extern uint16_t TIME_PER_APP;
-          ticksPerApp = (int)((float)TIME_PER_APP / (float)updateInterval);
+          ticksPerApp = (int)((float)TIME_PER_APP / (float)this->updateInterval);
         }
       }
       break;
 
     case FIXED:
-      if (state.manuelControll)
+      if (this->state.manuelControll)
       {
-        state.appTransitionDirection = lastTransitionDirection;
-        state.manuelControll = false;
+        this->state.appTransitionDirection = lastTransitionDirection;
+        this->state.manuelControll = false;
       }
 
-      if (state.ticksSinceLastStateSwitch >= ticksPerApp)
+      if (this->state.ticksSinceLastStateSwitch >= this->ticksPerApp)
       {
         // [Fix3] 直接读缓存的 enabledCount，不再每帧遍历
-        if (setAutoTransition && _enabledAppCount > 1)
+        if (this->setAutoTransition && _enabledAppCount > 1)
         {
-          state.appState = IN_TRANSITION;
+          this->state.appState = IN_TRANSITION;
           // [Fix1] 切换前锁定目标 App
-          state.cachedNextApp = getNextAppNumber();
+          this->state.cachedNextApp = getNextAppNumber();
         }
-        state.ticksSinceLastStateSwitch = 0;
+        this->state.ticksSinceLastStateSwitch = 0;
       }
       break;
     }
   }
 
-  matrix->clear();
-  if (AppCount > 0)
-    drawApp();
-  drawOverlays();
+  this->matrix->clear();
+  if (this->AppCount > 0)
+    this->drawApp();
+  this->drawOverlays();
   DisplayManager.gammaCorrection();
-  matrix->show();
+  this->matrix->show();
 }
 
 // ==================================================================
@@ -419,22 +410,22 @@ int8_t MatrixDisplayUi::update()
 {
   unsigned long appStart = millis();
   // [Fix4] 用 long 计算，避免 int8_t 溢出（超过 128ms 时会错误补偿）
-  long timeBudget = (long)updateInterval - (long)(appStart - state.lastUpdate);
+  long timeBudget = (long)this->updateInterval - (long)(appStart - this->state.lastUpdate);
 
   if (timeBudget <= 0)
   {
     // [Fix4] 补偿不再受 setAutoTransition 限制
-    if (state.lastUpdate != 0)
+    if (this->state.lastUpdate != 0)
     {
-      state.ticksSinceLastStateSwitch +=
-          (int)(-timeBudget / (long)updateInterval);
+      this->state.ticksSinceLastStateSwitch +=
+          (int)(-timeBudget / (long)this->updateInterval);
     }
-    state.lastUpdate = appStart;
-    tick();
+    this->state.lastUpdate = appStart;
+    this->tick();
   }
 
   // 返回值保持 int8_t 兼容（调用方用于可选 delay）
-  long remaining = (long)updateInterval - (long)(millis() - appStart);
+  long remaining = (long)this->updateInterval - (long)(millis() - appStart);
   return (int8_t)(remaining > 127 ? 127
                                   : (remaining < -128 ? -128 : remaining));
 }

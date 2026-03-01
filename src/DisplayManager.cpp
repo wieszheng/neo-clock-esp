@@ -9,12 +9,12 @@
  *   - 应用列表管理与切换
  *   - 文字渲染与滚动显示
  */
+#include <ArduinoJson.h>
 
 #include "DisplayManager.h"
 #include "Apps.h"
 #include "Liveview.h"
 #include "Tools.h"
-#include <ArduinoJson.h>
 
 // ==================================================================
 // 硬件实例
@@ -71,6 +71,9 @@ void DisplayManager_::setup()
 {
   FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
   setMatrixLayout(MATRIX_LAYOUT);
+
+  // FastLED.setCorrection(COLOR_CORRECTION);
+  // FastLED.setTemperature(COLOR_TEMPERATURE);
 
   ui->setAppAnimation(SLIDE_DOWN);
   ui->setTargetFPS(MATRIX_FPS);
@@ -313,7 +316,8 @@ void DisplayManager_::applyAllSettings()
   ui->setTargetFPS(MATRIX_FPS);
   ui->setTimePerApp(TIME_PER_APP);
   ui->setTimePerTransition(TIME_PER_TRANSITION);
-  setBrightness(BRIGHTNESS);
+  if (!AUTO_BRIGHTNESS)
+    setBrightness(BRIGHTNESS);
   setTextColor(TEXTCOLOR_565);
 
   if (AUTO_TRANSITION)
@@ -344,66 +348,6 @@ void DisplayManager_::loadNativeApps()
             { return a.position < b.position; });
 
   ui->setApps(Apps);
-}
-
-/**
- * @brief 通过 JSON 更新应用列表
- * @param json JSON 字符串
- *
- * 解析 JSON 并更新应用显示开关 (show)
- */
-void DisplayManager_::updateAppVector(const char *json)
-{
-  DynamicJsonDocument doc(1024);
-  auto error = deserializeJson(doc, json);
-  if (error)
-    return;
-
-  for (const auto &app : doc.as<JsonArray>())
-  {
-    String name = app["name"].as<String>();
-    bool show = app.containsKey("show") ? app["show"].as<bool>() : true;
-
-    if (name == "time")
-      SHOW_TIME = show;
-    else if (name == "date")
-      SHOW_DATE = show;
-    else if (name == "temp")
-      SHOW_TEMP = show;
-    else if (name == "hum")
-      SHOW_HUM = show;
-    else if (name == "music")
-      SHOW_SPECTRUM = show;
-  }
-
-  loadNativeApps();
-}
-
-/**
- * @brief 通过 JSON 更新系统设置
- * @param json JSON 字符串
- *
- * 解析 JSON 并更新应用时长、过渡时长、亮度、帧率、自动切换等
- */
-void DisplayManager_::setNewSettings(const char *json)
-{
-  DynamicJsonDocument doc(512);
-  auto error = deserializeJson(doc, json);
-  if (error)
-    return;
-
-  if (doc.containsKey("appTime"))
-    TIME_PER_APP = doc["appTime"];
-  if (doc.containsKey("transition"))
-    TIME_PER_TRANSITION = doc["transition"];
-  if (doc.containsKey("brightness"))
-    BRIGHTNESS = doc["brightness"];
-  if (doc.containsKey("fps"))
-    MATRIX_FPS = doc["fps"];
-  if (doc.containsKey("autoTransition"))
-    AUTO_TRANSITION = doc["autoTransition"];
-
-  applyAllSettings();
 }
 
 // ==================================================================

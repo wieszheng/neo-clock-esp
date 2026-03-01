@@ -114,18 +114,18 @@ private:
   MatrixDisplayUiState state; ///< 运行时状态
   std::vector<AppData> apps;  ///< 已注册的应用列表
 
-  int ticksPerApp;                          ///< 每个应用的显示 tick 数
-  int ticksPerTransition;                   ///< 过渡动画的 tick 数
-  float updateInterval;                     ///< 帧间隔 (ms)
-  AnimationDirection appAnimationDirection; ///< 动画方向
-  int nextAppNumber;                        ///< 手动指定的下一应用 (-1=未指定)
-  int8_t lastTransitionDirection;           ///< 手动控制前的方向（用于恢复）
-  bool setAutoTransition;                   ///< 是否启用自动轮播
-  int _enabledAppCount = 0;                 ///< 缓存的已启用 App 数量，避免每帧遍历
+  int ticksPerApp = 151;                                 ///< 每个应用的显示 tick 数
+  int ticksPerTransition = 15;                           ///< 过渡动画的 tick 数
+  float updateInterval = 33;                             ///< 帧间隔 (ms)
+  AnimationDirection appAnimationDirection = SLIDE_DOWN; ///< 动画方向
+  int nextAppNumber = -1;                                ///< 手动指定的下一应用 (-1=未指定)
+  int8_t lastTransitionDirection = 1;                    ///< 手动控制前的方向（用于恢复）
+  bool setAutoTransition = true;                         ///< 是否启用自动轮播
+  int _enabledAppCount = 0;                              ///< 缓存的已启用 App 数量，避免每帧遍历
 
   // 覆盖层
   OverlayCallback *overlayFunctions; ///< 覆盖层回调数组
-  uint8_t overlayCount;              ///< 覆盖层数量
+  uint8_t overlayCount = 0;          ///< 覆盖层数量
 
   // --- 内部方法 ---
   int getNextAppNumber();      ///< 计算下一应用索引（有副作用，仅在过渡开始时调用一次）

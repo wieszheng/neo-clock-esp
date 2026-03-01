@@ -40,7 +40,8 @@ MatrixDisplayUi *ui = new MatrixDisplayUi(matrix);
  * @param y 逻辑 Y 坐标
  * @return 物理索引
  */
-static uint16_t liveviewPixelMap(int16_t x, int16_t y) {
+static uint16_t liveviewPixelMap(int16_t x, int16_t y)
+{
   if (matrix)
     return matrix->XY(x, y);
   return y * MATRIX_WIDTH + x;
@@ -49,7 +50,8 @@ static uint16_t liveviewPixelMap(int16_t x, int16_t y) {
 // ==================================================================
 // 单例
 // ==================================================================
-DisplayManager_ &DisplayManager_::getInstance() {
+DisplayManager_ &DisplayManager_::getInstance()
+{
   static DisplayManager_ instance;
   return instance;
 }
@@ -65,7 +67,8 @@ DisplayManager_ &DisplayManager = DisplayManager.getInstance();
  *
  * 配置 FastLED、矩阵参数、UI 引擎，并初始化 Liveview 模块
  */
-void DisplayManager_::setup() {
+void DisplayManager_::setup()
+{
   FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
   setMatrixLayout(MATRIX_LAYOUT);
 
@@ -91,7 +94,8 @@ void DisplayManager_::setup() {
  * @brief 设置显示亮度
  * @param bri 亮度值 (0-255)，考虑 MATRIX_OFF 状态
  */
-void DisplayManager_::setBrightness(uint8_t bri) {
+void DisplayManager_::setBrightness(uint8_t bri)
+{
   matrix->setBrightness(MATRIX_OFF ? 0 : bri);
 }
 
@@ -99,7 +103,8 @@ void DisplayManager_::setBrightness(uint8_t bri) {
  * @brief 设置文字颜色
  * @param color RGB565 颜色值
  */
-void DisplayManager_::setTextColor(uint16_t color) {
+void DisplayManager_::setTextColor(uint16_t color)
+{
   matrix->setTextColor(color);
 }
 
@@ -107,7 +112,8 @@ void DisplayManager_::setTextColor(uint16_t color) {
  * @brief 设置矩阵电源状态
  * @param on true=开启, false=关闭
  */
-void DisplayManager_::setMatrixState(bool on) {
+void DisplayManager_::setMatrixState(bool on)
+{
   MATRIX_OFF = !on;
   setBrightness(BRIGHTNESS);
 }
@@ -133,7 +139,8 @@ void DisplayManager_::defaultTextColor() { setTextColor(TEXTCOLOR_565); }
  *
  * @param layout 布局模式 (0-5)
  */
-void DisplayManager_::setMatrixLayout(int layout) {
+void DisplayManager_::setMatrixLayout(int layout)
+{
   delete matrix;
 
   // 简化布局枚举切换分支
@@ -141,7 +148,8 @@ void DisplayManager_::setMatrixLayout(int layout) {
                  NEO_MATRIX_PROGRESSIVE;
   int w = 8, h = 8, tilesX = 4, tilesY = 1;
 
-  switch (layout) {
+  switch (layout)
+  {
   case 0: // 32x8 单块 Col+Zigzag
     w = 32;
     h = 8;
@@ -175,9 +183,12 @@ void DisplayManager_::setMatrixLayout(int layout) {
     break;
   }
 
-  if (tilesX > 1) {
+  if (tilesX > 1)
+  {
     matrix = new FastLED_NeoMatrix(leds, w, h, tilesX, tilesY, type);
-  } else {
+  }
+  else
+  {
     matrix = new FastLED_NeoMatrix(leds, w, h, type);
   }
 
@@ -196,10 +207,13 @@ void DisplayManager_::setMatrixLayout(int layout) {
  *   - DISPLAY_NORMAL: 正常应用显示，由 ui->update() 处理
  *   - 其他状态: 渲染状态画面 (AP 配网、连接动画等)
  */
-void DisplayManager_::tick() {
-  if (_state.status != DISPLAY_NORMAL) {
+void DisplayManager_::tick()
+{
+  if (_state.status != DISPLAY_NORMAL)
+  {
     matrix->clear();
-    switch (_state.status) {
+    switch (_state.status)
+    {
     case DISPLAY_AP_MODE:
       _renderAPMode();
       break;
@@ -216,7 +230,9 @@ void DisplayManager_::tick() {
       break;
     }
     matrix->show();
-  } else {
+  }
+  else
+  {
     ui->update();
   }
 }
@@ -240,27 +256,46 @@ void DisplayManager_::show() { matrix->show(); }
  * @param ignoreUppercase 是否忽略转大写
  */
 void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
-                                bool centered, bool ignoreUppercase) {
-  if (centered) {
+                                bool centered, bool ignoreUppercase)
+{
+  if (centered)
+  {
     uint16_t textWidth = getTextWidth(text, ignoreUppercase);
     int16_t textX = (MATRIX_WIDTH - textWidth) / 2;
     matrix->setCursor(textX, y);
-  } else {
+  }
+  else
+  {
     matrix->setCursor(x, y);
   }
 
-  if (!ignoreUppercase) {
+  if (!ignoreUppercase)
+  {
     char upperText[64];
     size_t len = 0;
     const char *p = text;
-    while (*p && len < 63) {
+    while (*p && len < 63)
+    {
       upperText[len++] = toupper(*p);
       p++;
     }
     upperText[len] = '\0';
     matrix->print(upperText);
-  } else {
+  }
+  else
+  {
     matrix->print(text);
+  }
+}
+
+void DisplayManager_::gammaCorrection()
+{
+  if (1 > 0)
+  {
+    for (int i = 0; i < 256; i++)
+    {
+      leds[i] = applyGamma_video(leds[i], 1);
+    }
   }
 }
 
@@ -273,7 +308,8 @@ void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
  *
  * 包括帧率、应用时长、过渡时长、亮度、颜色、自动切换等
  */
-void DisplayManager_::applyAllSettings() {
+void DisplayManager_::applyAllSettings()
+{
   ui->setTargetFPS(MATRIX_FPS);
   ui->setTimePerApp(TIME_PER_APP);
   ui->setTimePerTransition(TIME_PER_TRANSITION);
@@ -292,7 +328,8 @@ void DisplayManager_::applyAllSettings() {
  * 将时间、日期、温度、湿度、天气、风速应用添加到 Apps 列表，
  * 并按 position 排序
  */
-void DisplayManager_::loadNativeApps() {
+void DisplayManager_::loadNativeApps()
+{
   Apps.clear();
 
   Apps.push_back({"time", TimeApp, SHOW_TIME, TIME_POSITION, TIME_DURATION});
@@ -303,9 +340,8 @@ void DisplayManager_::loadNativeApps() {
                   WEATHER_DURATION});
   Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
 
-  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b) {
-    return a.position < b.position;
-  });
+  std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b)
+            { return a.position < b.position; });
 
   ui->setApps(Apps);
 }
@@ -316,13 +352,15 @@ void DisplayManager_::loadNativeApps() {
  *
  * 解析 JSON 并更新应用显示开关 (show)
  */
-void DisplayManager_::updateAppVector(const char *json) {
+void DisplayManager_::updateAppVector(const char *json)
+{
   DynamicJsonDocument doc(1024);
   auto error = deserializeJson(doc, json);
   if (error)
     return;
 
-  for (const auto &app : doc.as<JsonArray>()) {
+  for (const auto &app : doc.as<JsonArray>())
+  {
     String name = app["name"].as<String>();
     bool show = app.containsKey("show") ? app["show"].as<bool>() : true;
 
@@ -347,7 +385,8 @@ void DisplayManager_::updateAppVector(const char *json) {
  *
  * 解析 JSON 并更新应用时长、过渡时长、亮度、帧率、自动切换等
  */
-void DisplayManager_::setNewSettings(const char *json) {
+void DisplayManager_::setNewSettings(const char *json)
+{
   DynamicJsonDocument doc(512);
   auto error = deserializeJson(doc, json);
   if (error)
@@ -381,7 +420,8 @@ void DisplayManager_::selectButton() {}
 // ==================================================================
 void DisplayManager_::setDisplayStatus(DisplayStatus status,
                                        const String &line1,
-                                       const String &line2) {
+                                       const String &line2)
+{
   _state.status = status;
   _state.line1 = line1;
   _state.line2 = line2;
@@ -399,7 +439,8 @@ void DisplayManager_::setDisplayStatus(DisplayStatus status,
 // 辅助: RGB565 转换宏
 #define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
-void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color) {
+void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color)
+{
   for (int i = 1; i <= 5; i++)
     matrix->drawPixel(x + i, y + 0, color);
   matrix->drawPixel(x + 0, y + 1, color);
@@ -415,11 +456,14 @@ void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color) {
 }
 
 void DisplayManager_::_drawScrollText(int16_t y, const String &text,
-                                      uint16_t color) {
-  if (millis() - _state.lastScrollTime >= 50) {
+                                      uint16_t color)
+{
+  if (millis() - _state.lastScrollTime >= 50)
+  {
     _state.lastScrollTime = millis();
     _state.scrollX--;
-    if (_state.scrollX < -_state.scrollTextWidth) {
+    if (_state.scrollX < -_state.scrollTextWidth)
+    {
       _state.scrollX = MATRIX_WIDTH + 2;
     }
   }
@@ -428,7 +472,8 @@ void DisplayManager_::_drawScrollText(int16_t y, const String &text,
   matrix->print(text);
 }
 
-void DisplayManager_::_renderAPMode() {
+void DisplayManager_::_renderAPMode()
+{
   unsigned long now = millis();
   float breath = (sin((now - _state.startTime) * 0.003) + 1.0) * 0.5;
   uint8_t intensity = 80 + (uint8_t)(breath * 175);
@@ -437,7 +482,8 @@ void DisplayManager_::_renderAPMode() {
                               (uint8_t)(0xF1 * intensity / 255));
 
   // 1. 绘制滚动文字 (背景层)
-  if (millis() - _state.lastScrollTime >= 50) {
+  if (millis() - _state.lastScrollTime >= 50)
+  {
     _state.lastScrollTime = millis();
     _state.scrollX--;
     if (_state.scrollX < 9 - _state.scrollTextWidth)
@@ -459,9 +505,11 @@ void DisplayManager_::_renderAPMode() {
     matrix->drawPixel(8, i, dimColor);
 }
 
-void DisplayManager_::_renderConnecting() {
+void DisplayManager_::_renderConnecting()
+{
   unsigned long now = millis();
-  if (now - _state.lastAnimTime >= 150) {
+  if (now - _state.lastAnimTime >= 150)
+  {
     _state.lastAnimTime = now;
     _state.animFrame = (_state.animFrame + 1) % MATRIX_WIDTH;
   }
@@ -470,16 +518,19 @@ void DisplayManager_::_renderConnecting() {
   uint16_t trailColor = RGB565(0x30, 0x30, 0x78);
   uint16_t dimTrail = RGB565(0x18, 0x18, 0x3C);
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; i++)
+  {
     int pos = (_state.animFrame + i * 4) % MATRIX_WIDTH;
     matrix->drawPixel(pos, 0, (i == 0) ? dotColor : trailColor);
-    if (i == 0) {
+    if (i == 0)
+    {
       matrix->drawPixel((pos - 1 + MATRIX_WIDTH) % MATRIX_WIDTH, 0, trailColor);
       matrix->drawPixel((pos - 2 + MATRIX_WIDTH) % MATRIX_WIDTH, 0, dimTrail);
     }
   }
 
-  if (millis() - _state.lastScrollTime >= 55) {
+  if (millis() - _state.lastScrollTime >= 55)
+  {
     _state.lastScrollTime = millis();
     _state.scrollX--;
     if (_state.scrollX < -_state.scrollTextWidth)
@@ -490,9 +541,11 @@ void DisplayManager_::_renderConnecting() {
   matrix->print(_state.line2);
 }
 
-void DisplayManager_::_renderConnected() {
+void DisplayManager_::_renderConnected()
+{
   unsigned long elapsed = millis() - _state.startTime;
-  if (elapsed > 5000) {
+  if (elapsed > 5000)
+  {
     _state.status = DISPLAY_NORMAL;
     AP_MODE = false;
     return;
@@ -503,7 +556,8 @@ void DisplayManager_::_renderConnected() {
   uint16_t checkColor = RGB565(0x10, gBright, 0x30);
 
   // 1. 绘制滚动文字 (背景层)
-  if (millis() - _state.lastScrollTime >= 50) {
+  if (millis() - _state.lastScrollTime >= 50)
+  {
     _state.lastScrollTime = millis();
     _state.scrollX--;
     if (_state.scrollX < 9 - _state.scrollTextWidth)
@@ -523,9 +577,11 @@ void DisplayManager_::_renderConnected() {
     matrix->drawPixel(checkX[i], checkY[i], checkColor);
 }
 
-void DisplayManager_::_renderConnectFailed() {
+void DisplayManager_::_renderConnectFailed()
+{
   unsigned long elapsed = millis() - _state.startTime;
-  if (elapsed > 3000) {
+  if (elapsed > 3000)
+  {
     setDisplayStatus(DISPLAY_AP_MODE, _state.line1, "192.168.4.1");
     return;
   }
@@ -534,7 +590,8 @@ void DisplayManager_::_renderConnectFailed() {
     return;
 
   uint16_t xColor = RGB565(0xEF, 0x44, 0x44);
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 6; i++)
+  {
     matrix->drawPixel(1 + i, 1 + i, xColor);
     matrix->drawPixel(6 - i, 1 + i, xColor);
   }

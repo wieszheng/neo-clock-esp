@@ -23,12 +23,13 @@
 // ==================================================================
 
 /// 显示状态枚举
-enum DisplayStatus {
-  DISPLAY_NORMAL = 0,     ///< 正常应用显示模式
-  DISPLAY_AP_MODE,        ///< AP 配网模式 - 显示热点名称和 IP
-  DISPLAY_CONNECTING,     ///< WiFi 连接中动画
-  DISPLAY_CONNECTED,      ///< 连接成功 - 短暂显示 IP 地址
-  DISPLAY_CONNECT_FAILED   ///< 连接失败提示
+enum DisplayStatus
+{
+  DISPLAY_NORMAL = 0,    ///< 正常应用显示模式
+  DISPLAY_AP_MODE,       ///< AP 配网模式 - 显示热点名称和 IP
+  DISPLAY_CONNECTING,    ///< WiFi 连接中动画
+  DISPLAY_CONNECTED,     ///< 连接成功 - 短暂显示 IP 地址
+  DISPLAY_CONNECT_FAILED ///< 连接失败提示
 };
 
 // ==================================================================
@@ -46,21 +47,23 @@ enum DisplayStatus {
  *   - 状态显示系统 (AP 配网、连接状态等)
  *   - 文字渲染与滚动显示
  */
-class DisplayManager_ {
+class DisplayManager_
+{
 private:
   // ==================================================================
   // 状态显示相关
   // ==================================================================
-  struct DisplayState {
-    DisplayStatus status = DISPLAY_NORMAL;  ///< 当前显示状态
+  struct DisplayState
+  {
+    DisplayStatus status = DISPLAY_NORMAL; ///< 当前显示状态
     String line1;                          ///< 主显示文字
     String line2;                          ///< 副显示文字 (滚动)
     int16_t scrollX = 0;                   ///< 滚动位置
     int16_t scrollTextWidth = 0;           ///< 滚动文字像素宽度
-    unsigned long lastScrollTime = 0;        ///< 上次滚动时间
-    unsigned long startTime = 0;             ///< 状态开始时间
-    uint8_t animFrame = 0;                  ///< 动画帧索引
-    unsigned long lastAnimTime = 0;          ///< 上次动画更新时间
+    unsigned long lastScrollTime = 0;      ///< 上次滚动时间
+    unsigned long startTime = 0;           ///< 状态开始时间
+    uint8_t animFrame = 0;                 ///< 动画帧索引
+    unsigned long lastAnimTime = 0;        ///< 上次动画更新时间
   } _state;
 
   // ==================================================================
@@ -155,7 +158,7 @@ public:
    * @brief 恢复默认文字颜色
    */
   void defaultTextColor();
-
+  void gammaCorrection();
   // ==================================================================
   // 设置应用
   // ==================================================================

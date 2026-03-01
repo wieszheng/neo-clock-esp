@@ -23,7 +23,7 @@ uint8_t BRIGHTNESS = 70;
 uint8_t MATRIX_FPS = 30;
 bool MATRIX_OFF = false;
 bool AUTO_TRANSITION = true;
-bool AUTO_BRIGHTNESS = false; // LDR 光敏电阵自动亮度，默认关闭
+bool AUTO_BRIGHTNESS = true; // LDR 光敏电阵自动亮度，默认关闭
 int MATRIX_LAYOUT = 5;
 
 uint16_t TIME_PER_APP = 5000;
@@ -118,7 +118,8 @@ int WEATHER_COD = 0;
  * 使用 Preferences 库以只读模式打开命名空间 "neo-clock"，
  * 加载所有已保存的配置参数，并为未保存的参数使用默认值。
  */
-void loadSettings() {
+void loadSettings()
+{
   preferences.begin("neo-clock", true); // 只读模式加载
 
   TIME_PER_APP = preferences.getUInt("appTime", 5000);
@@ -183,7 +184,8 @@ void loadSettings() {
  * 使用 Preferences 库以读写模式打开命名空间 "neo-clock"，
  * 将当前的所有配置参数保存到 Flash 存储器。
  */
-void saveSettings() {
+void saveSettings()
+{
   preferences.begin("neo-clock", false); // 读写模式保存
 
   preferences.putUInt("appTime", TIME_PER_APP);

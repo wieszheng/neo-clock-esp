@@ -38,7 +38,8 @@ FastFramePlayer player2;
 // 构造与初始化
 // ==================================================================
 
-MatrixDisplayUi::MatrixDisplayUi(FastLED_NeoMatrix *matrix) {
+MatrixDisplayUi::MatrixDisplayUi(FastLED_NeoMatrix *matrix)
+{
   this->matrix = matrix;
   this->updateInterval = 33.33;  // 1000ms / 30 FPS
   this->ticksPerApp = 150;       // 默认每页 5 秒 (150 ticks × 33ms)
@@ -55,7 +56,8 @@ MatrixDisplayUi::MatrixDisplayUi(FastLED_NeoMatrix *matrix) {
 /**
  * @brief 初始化矩阵硬件和字体
  */
-void MatrixDisplayUi::init() {
+void MatrixDisplayUi::init()
+{
   matrix->begin();
   matrix->setTextWrap(false);
   matrix->setBrightness(BRIGHTNESS);
@@ -68,7 +70,8 @@ void MatrixDisplayUi::init() {
 // 参数配置
 // ==================================================================
 
-void MatrixDisplayUi::setTargetFPS(uint8_t fps) {
+void MatrixDisplayUi::setTargetFPS(uint8_t fps)
+{
   float oldInterval = this->updateInterval;
   this->updateInterval = ((float)1.0 / (float)fps) * 1000;
 
@@ -77,36 +80,43 @@ void MatrixDisplayUi::setTargetFPS(uint8_t fps) {
   this->ticksPerTransition *= changeRatio;
 }
 
-void MatrixDisplayUi::enablesetAutoTransition() {
+void MatrixDisplayUi::enablesetAutoTransition()
+{
   this->setAutoTransition = true;
 }
-void MatrixDisplayUi::disablesetAutoTransition() {
+void MatrixDisplayUi::disablesetAutoTransition()
+{
   this->setAutoTransition = false;
 }
 
-void MatrixDisplayUi::setTimePerApp(uint16_t time) {
+void MatrixDisplayUi::setTimePerApp(uint16_t time)
+{
   this->ticksPerApp = (int)((float)time / (float)updateInterval);
 }
 
-void MatrixDisplayUi::setTimePerTransition(uint16_t time) {
+void MatrixDisplayUi::setTimePerTransition(uint16_t time)
+{
   this->ticksPerTransition = (int)((float)time / (float)updateInterval);
 }
 
-void MatrixDisplayUi::setAppAnimation(AnimationDirection dir) {
+void MatrixDisplayUi::setAppAnimation(AnimationDirection dir)
+{
   this->appAnimationDirection = dir;
 }
 
 /**
  * @brief 设置应用列表，同时预计算 enabledCount 缓存 [Fix3]
  */
-void MatrixDisplayUi::setApps(const std::vector<AppData> &appList) {
+void MatrixDisplayUi::setApps(const std::vector<AppData> &appList)
+{
   this->apps = appList;
   this->AppCount = appList.size();
   _rebuildEnabledCount();
 }
 
 void MatrixDisplayUi::setOverlays(OverlayCallback *overlayFunctions,
-                                  uint8_t overlayCount) {
+                                  uint8_t overlayCount)
+{
   this->overlayFunctions = overlayFunctions;
   this->overlayCount = overlayCount;
 }
@@ -114,9 +124,11 @@ void MatrixDisplayUi::setOverlays(OverlayCallback *overlayFunctions,
 // ==================================================================
 // 内部：重建 enabledCount 缓存 [Fix3]
 // ==================================================================
-void MatrixDisplayUi::_rebuildEnabledCount() {
+void MatrixDisplayUi::_rebuildEnabledCount()
+{
   int count = 0;
-  for (auto &app : apps) {
+  for (auto &app : apps)
+  {
     if (app.enabled)
       count++;
   }
@@ -127,8 +139,10 @@ void MatrixDisplayUi::_rebuildEnabledCount() {
 // 应用导航
 // ==================================================================
 
-void MatrixDisplayUi::nextApp() {
-  if (this->state.appState != IN_TRANSITION) {
+void MatrixDisplayUi::nextApp()
+{
+  if (this->state.appState != IN_TRANSITION)
+  {
     this->state.manuelControll = true;
     this->state.appState = IN_TRANSITION;
     this->state.ticksSinceLastStateSwitch = 0;
@@ -139,8 +153,10 @@ void MatrixDisplayUi::nextApp() {
   }
 }
 
-void MatrixDisplayUi::previousApp() {
-  if (this->state.appState != IN_TRANSITION) {
+void MatrixDisplayUi::previousApp()
+{
+  if (this->state.appState != IN_TRANSITION)
+  {
     this->state.manuelControll = true;
     this->state.appState = IN_TRANSITION;
     this->state.ticksSinceLastStateSwitch = 0;
@@ -151,7 +167,8 @@ void MatrixDisplayUi::previousApp() {
   }
 }
 
-void MatrixDisplayUi::transitionToApp(uint8_t app) {
+void MatrixDisplayUi::transitionToApp(uint8_t app)
+{
   if (app >= this->AppCount)
     return;
 
@@ -168,7 +185,8 @@ void MatrixDisplayUi::transitionToApp(uint8_t app) {
   this->state.cachedNextApp = getNextAppNumber();
 }
 
-void MatrixDisplayUi::switchToApp(uint8_t app) {
+void MatrixDisplayUi::switchToApp(uint8_t app)
+{
   if (app >= this->AppCount)
     return;
   if (app == this->state.currentApp)
@@ -179,7 +197,8 @@ void MatrixDisplayUi::switchToApp(uint8_t app) {
   this->state.appState = FIXED;
   this->state.cachedNextApp = -1;
 
-  if (apps[app].duration > 0) {
+  if (apps[app].duration > 0)
+  {
     this->ticksPerApp =
         (int)((float)apps[app].duration / (float)updateInterval);
   }
@@ -196,8 +215,10 @@ void MatrixDisplayUi::switchToApp(uint8_t app) {
  *    只在过渡开始时（nextApp/previousApp/transitionToApp）调用一次，
  *    结果缓存到 state.cachedNextApp，之后统一读缓存。[Fix1]
  */
-int MatrixDisplayUi::getNextAppNumber() {
-  if (this->nextAppNumber != -1) {
+int MatrixDisplayUi::getNextAppNumber()
+{
+  if (this->nextAppNumber != -1)
+  {
     int temp = this->nextAppNumber;
     this->nextAppNumber = -1;
     return temp;
@@ -205,8 +226,10 @@ int MatrixDisplayUi::getNextAppNumber() {
 
   int enabledIndices[16];
   int enabledCount = 0;
-  for (int i = 0; i < (int)apps.size() && enabledCount < 16; i++) {
-    if (apps[i].enabled) {
+  for (int i = 0; i < (int)apps.size() && enabledCount < 16; i++)
+  {
+    if (apps[i].enabled)
+    {
       enabledIndices[enabledCount++] = i;
     }
   }
@@ -215,8 +238,10 @@ int MatrixDisplayUi::getNextAppNumber() {
     return 0;
 
   int currentPos = 0;
-  for (int i = 0; i < enabledCount; i++) {
-    if (enabledIndices[i] == state.currentApp) {
+  for (int i = 0; i < enabledCount; i++)
+  {
+    if (enabledIndices[i] == state.currentApp)
+    {
       currentPos = i;
       break;
     }
@@ -231,8 +256,10 @@ int MatrixDisplayUi::getNextAppNumber() {
 // 覆盖层绘制
 // ==================================================================
 
-void MatrixDisplayUi::drawOverlays() {
-  for (uint8_t i = 0; i < this->overlayCount; i++) {
+void MatrixDisplayUi::drawOverlays()
+{
+  for (uint8_t i = 0; i < this->overlayCount; i++)
+  {
     (this->overlayFunctions[i])(this->matrix, &this->state, &player2);
   }
 }
@@ -247,12 +274,15 @@ void MatrixDisplayUi::drawOverlays() {
  * [Fix1] 直接读 state.cachedNextApp，不再调用 getNextAppNumber()
  * [Fix2] 过渡中当前页用 player1，下一页用 player2，互不干扰
  */
-void MatrixDisplayUi::drawApp() {
+void MatrixDisplayUi::drawApp()
+{
   if (apps.empty())
     return;
 
-  switch (state.appState) {
-  case IN_TRANSITION: {
+  switch (state.appState)
+  {
+  case IN_TRANSITION:
+  {
     int nextApp = state.cachedNextApp;
     if (nextApp < 0 || nextApp >= (int)apps.size())
       nextApp = state.currentApp; // 安全回退
@@ -263,7 +293,8 @@ void MatrixDisplayUi::drawApp() {
     int16_t x = 0, y = 0;
     int16_t x1 = 0, y1 = 0;
 
-    switch (appAnimationDirection) {
+    switch (appAnimationDirection)
+    {
     case SLIDE_UP:
       y = -8 * progress;
       y1 = y + 8;
@@ -283,10 +314,12 @@ void MatrixDisplayUi::drawApp() {
     y1 *= dir;
 
     // [Fix2] 当前页用 player1，下一页用 player2
-    if (state.currentApp < (int)apps.size()) {
+    if (state.currentApp < (int)apps.size())
+    {
       apps[state.currentApp].callback(matrix, &state, x, y, &player1);
     }
-    if (nextApp < (int)apps.size()) {
+    if (nextApp < (int)apps.size())
+    {
       apps[nextApp].callback(matrix, &state, x1, y1, &player2);
     }
     break;
@@ -294,7 +327,8 @@ void MatrixDisplayUi::drawApp() {
 
   case FIXED:
     // [Fix2] 固定显示只用 player1
-    if (state.currentApp < (int)apps.size()) {
+    if (state.currentApp < (int)apps.size())
+    {
       apps[state.currentApp].callback(matrix, &state, 0, 0, &player1);
     }
     break;
@@ -305,14 +339,18 @@ void MatrixDisplayUi::drawApp() {
 // 状态机 + 主渲染循环
 // ==================================================================
 
-void MatrixDisplayUi::tick() {
+void MatrixDisplayUi::tick()
+{
   state.ticksSinceLastStateSwitch++;
 
-  if (AppCount > 0) {
-    switch (state.appState) {
+  if (AppCount > 0)
+  {
+    switch (state.appState)
+    {
 
     case IN_TRANSITION:
-      if (state.ticksSinceLastStateSwitch >= ticksPerTransition) {
+      if (state.ticksSinceLastStateSwitch >= ticksPerTransition)
+      {
         // [Fix1] 直接读缓存，不再二次调用 getNextAppNumber()
         int nextApp = state.cachedNextApp;
         if (nextApp < 0 || nextApp >= (int)apps.size())
@@ -324,10 +362,13 @@ void MatrixDisplayUi::tick() {
         state.ticksSinceLastStateSwitch = 0;
 
         if (state.currentApp < (int)apps.size() &&
-            apps[state.currentApp].duration > 0) {
+            apps[state.currentApp].duration > 0)
+        {
           ticksPerApp = (int)((float)apps[state.currentApp].duration /
                               (float)updateInterval);
-        } else {
+        }
+        else
+        {
           extern uint16_t TIME_PER_APP;
           ticksPerApp = (int)((float)TIME_PER_APP / (float)updateInterval);
         }
@@ -335,14 +376,17 @@ void MatrixDisplayUi::tick() {
       break;
 
     case FIXED:
-      if (state.manuelControll) {
+      if (state.manuelControll)
+      {
         state.appTransitionDirection = lastTransitionDirection;
         state.manuelControll = false;
       }
 
-      if (state.ticksSinceLastStateSwitch >= ticksPerApp) {
+      if (state.ticksSinceLastStateSwitch >= ticksPerApp)
+      {
         // [Fix3] 直接读缓存的 enabledCount，不再每帧遍历
-        if (setAutoTransition && _enabledAppCount > 1) {
+        if (setAutoTransition && _enabledAppCount > 1)
+        {
           state.appState = IN_TRANSITION;
           // [Fix1] 切换前锁定目标 App
           state.cachedNextApp = getNextAppNumber();
@@ -357,6 +401,7 @@ void MatrixDisplayUi::tick() {
   if (AppCount > 0)
     drawApp();
   drawOverlays();
+  DisplayManager.gammaCorrection();
   matrix->show();
 }
 
@@ -370,14 +415,17 @@ void MatrixDisplayUi::tick() {
  * [Fix4] timeBudget 改为 long 消除 int8_t 溢出；
  *        丢帧补偿不再受 setAutoTransition 限制，手动模式下过渡也正常追帧。
  */
-int8_t MatrixDisplayUi::update() {
+int8_t MatrixDisplayUi::update()
+{
   unsigned long appStart = millis();
   // [Fix4] 用 long 计算，避免 int8_t 溢出（超过 128ms 时会错误补偿）
   long timeBudget = (long)updateInterval - (long)(appStart - state.lastUpdate);
 
-  if (timeBudget <= 0) {
+  if (timeBudget <= 0)
+  {
     // [Fix4] 补偿不再受 setAutoTransition 限制
-    if (state.lastUpdate != 0) {
+    if (state.lastUpdate != 0)
+    {
       state.ticksSinceLastStateSwitch +=
           (int)(-timeBudget / (long)updateInterval);
     }

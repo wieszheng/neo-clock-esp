@@ -17,7 +17,8 @@
 #include "PeripheryManager.h"
 #include <ArduinoJson.h>
 
-ServerManager_ &ServerManager_::getInstance() {
+ServerManager_ &ServerManager_::getInstance()
+{
   static ServerManager_ instance;
   return instance;
 }
@@ -28,13 +29,16 @@ ServerManager_ &ServerManager = ServerManager.getInstance();
 // WebSocket 服务器保留在 81 端口用于控制面板
 
 void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
-                                          uint8_t *payload, size_t length) {
-  switch (type) {
+                                          uint8_t *payload, size_t length)
+{
+  switch (type)
+  {
   case WStype_DISCONNECTED:
     Serial.printf("[WS] Client #%u disconnected\n", num);
     break;
 
-  case WStype_CONNECTED: {
+  case WStype_CONNECTED:
+  {
     IPAddress ip = ws->remoteIP(num);
     Serial.printf("[WS] Client #%u connected from %s\n", num,
                   ip.toString().c_str());
@@ -56,9 +60,12 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
     static size_t uploadReceived = 0;
     static File uploadFile;
 
-  case WStype_BIN: {
-    if (uploading && num == uploadClient) {
-      if (uploadFile) {
+  case WStype_BIN:
+  {
+    if (uploading && num == uploadClient)
+    {
+      if (uploadFile)
+      {
         size_t written = uploadFile.write(payload, length);
         uploadReceived += written;
         // Serial.printf("[WS] Received BIN chunk: %u bytes (total: %u/%u)\n",
@@ -67,13 +74,15 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
     }
     break;
   }
-  case WStype_TEXT: {
+  case WStype_TEXT:
+  {
     Serial.printf("[WS] Received: %s\n", payload);
 
     DynamicJsonDocument doc(2048);
     DeserializationError error = deserializeJson(doc, payload);
 
-    if (error) {
+    if (error)
+    {
       Serial.println("[WS] Parse error");
       return;
     }
@@ -83,11 +92,13 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
                            ? doc["requestId"].as<String>()
                            : String("");
 
-    if (type == "uploadIcon") {
+    if (type == "uploadIcon")
+    {
       String phase =
           doc.containsKey("phase") ? doc["phase"].as<String>() : String("");
 
-      if (phase == "start") {
+      if (phase == "start")
+      {
         String filename = doc.containsKey("filename")
                               ? doc["filename"].as<String>()
                               : String("");
@@ -95,11 +106,13 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
                           ? (size_t)doc["totalBytes"].as<uint32_t>()
                           : 0;
 
-        if (filename.length() == 0 || !filename.endsWith(".anim")) {
+        if (filename.length() == 0 || !filename.endsWith(".anim"))
+        {
           sendAck(num, requestId, "uploadIcon", false, "invalid filename");
           return;
         }
-        if (uploading) {
+        if (uploading)
+        {
           sendAck(num, requestId, "uploadIcon", false, "busy");
           return;
         }
@@ -107,12 +120,14 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
         uploadPath = "/icons/" + filename;
 
         // 确保目录存在
-        if (!LittleFS.exists("/icons")) {
+        if (!LittleFS.exists("/icons"))
+        {
           LittleFS.mkdir("/icons");
         }
 
         uploadFile = LittleFS.open(uploadPath, "w");
-        if (!uploadFile) {
+        if (!uploadFile)
+        {
           sendAck(num, requestId, "uploadIcon", false, "open file failed");
           return;
         }
@@ -128,13 +143,16 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
         return;
       }
 
-      if (phase == "finish") {
-        if (!uploading || uploadClient != num || uploadRequestId != requestId) {
+      if (phase == "finish")
+      {
+        if (!uploading || uploadClient != num || uploadRequestId != requestId)
+        {
           sendAck(num, requestId, "uploadIcon", false, "no active upload");
           return;
         }
 
-        if (uploadFile) {
+        if (uploadFile)
+        {
           uploadFile.flush();
           uploadFile.close();
         }
@@ -152,13 +170,17 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
         uploadTotal = 0;
         uploadReceived = 0;
 
-        if (ok) {
+        if (ok)
+        {
           sendAck(num, requestId, "uploadIcon", true);
           // 可选：推送更新后的图标列表给该客户端
           sendIconList(num);
-        } else {
+        }
+        else
+        {
           // 删除不完整文件
-          if (LittleFS.exists(uploadPath)) {
+          if (LittleFS.exists(uploadPath))
+          {
             LittleFS.remove(uploadPath);
           }
           sendAck(num, requestId, "uploadIcon", false, "size mismatch");
@@ -169,28 +191,44 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       sendAck(num, requestId, "uploadIcon", false, "invalid phase");
       return;
     }
-    if (type == "getConfig") {
+    if (type == "getConfig")
+    {
       broadcastConfig();
-    } else if (type == "getStats") {
+    }
+    else if (type == "getStats")
+    {
       broadcastStats();
-    } else if (type == "getLiveview") {
+    }
+    else if (type == "getIconList")
+    {
+      sendIconList(num);
+    }
+    else if (type == "getLiveview")
+    {
       // 启用实时预览
       Serial.println("[WS] Enabling liveview");
       EnableLiveview = true;
-    } else if (type == "stopLiveview") {
+    }
+    else if (type == "stopLiveview")
+    {
       // 停止实时预览
       EnableLiveview = false;
-    } else if (type == "appsUpdate") {
+    }
+    else if (type == "appsUpdate")
+    {
       // 处理应用更新
-      if (doc.containsKey("apps")) {
-        for (auto app : doc["apps"].as<JsonArray>()) {
+      if (doc.containsKey("apps"))
+      {
+        for (auto app : doc["apps"].as<JsonArray>())
+        {
           String name = app["name"].as<String>();
           bool show = app["show"].as<bool>();
           int position = app.containsKey("pos") ? app["pos"].as<int>() : -1;
           uint16_t duration =
               app.containsKey("duration") ? app["duration"].as<int>() : 0;
 
-          if (name == "time") {
+          if (name == "time")
+          {
             SHOW_TIME = show;
             TIME_DURATION = duration;
             TIME_POSITION = position;
@@ -202,7 +240,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
               TIME_WEEKDAY_INACTIVE_COLOR = app["weekdayInactive"].as<String>();
             if (app.containsKey("iconName"))
               TIME_ICON = app["iconName"].as<String>();
-          } else if (name == "date") {
+          }
+          else if (name == "date")
+          {
             SHOW_DATE = show;
             DATE_DURATION = duration;
             DATE_POSITION = position;
@@ -214,19 +254,25 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
               DATE_WEEKDAY_INACTIVE_COLOR = app["weekdayInactive"].as<String>();
             if (app.containsKey("iconName"))
               DATE_ICON = app["iconName"].as<String>();
-          } else if (name == "temp") {
+          }
+          else if (name == "temp")
+          {
             SHOW_TEMP = show;
             TEMP_DURATION = duration;
             TEMP_POSITION = position;
             if (app.containsKey("color"))
               TEMP_COLOR = app["color"].as<String>();
-          } else if (name == "hum") {
+          }
+          else if (name == "hum")
+          {
             SHOW_HUM = show;
             HUM_DURATION = duration;
             HUM_POSITION = position;
             if (app.containsKey("color"))
               HUM_COLOR = app["color"].as<String>();
-          } else if (name == "wind") {
+          }
+          else if (name == "wind")
+          {
             SHOW_WIND = show;
             WIND_DURATION = duration;
             WIND_POSITION = position;
@@ -234,7 +280,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
               WIND_COLOR = app["color"].as<String>();
             if (app.containsKey("iconName"))
               WIND_ICON = app["iconName"].as<String>();
-          } else if (name == "weather") {
+          }
+          else if (name == "weather")
+          {
             SHOW_WEATHER = show;
             WEATHER_DURATION = duration;
             WEATHER_POSITION = position;
@@ -242,9 +290,12 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
               APP_WEATHER_ICON = app["iconName"].as<String>();
           }
           // 更新Apps中的position和duration
-          if (position >= 0) {
-            for (auto &a : Apps) {
-              if (a.name == name) {
+          if (position >= 0)
+          {
+            for (auto &a : Apps)
+            {
+              if (a.name == name)
+              {
                 a.position = position;
                 a.duration = duration;
                 break;
@@ -265,18 +316,24 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       sendAck(num, requestId, "appsUpdate", true);
       broadcastConfig();
       broadcastStats();
-    } else if (type == "setBrightness") {
+    }
+    else if (type == "setBrightness")
+    {
       int value = doc["value"].as<int>();
       // 支持 0-100 范围（小程序使用）和 0-255 范围（ESP32 内部）
-      if (value <= 100) {
+      if (value <= 100)
+      {
         // 小程序发送的是 0-100，转换为 0-255
         BRIGHTNESS = (uint8_t)((value * 255) / 100);
-      } else {
+      }
+      else
+      {
         // 直接使用 0-255 值
         BRIGHTNESS = (uint8_t)value;
       }
       // 手动设置亮度时自动关闭 LDR 自动亮度，避免手动值立刻被覆盖
-      if (AUTO_BRIGHTNESS) {
+      if (AUTO_BRIGHTNESS)
+      {
         AUTO_BRIGHTNESS = false;
         PeripheryManager.setAutoBrightness(false);
       }
@@ -284,7 +341,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       saveSettings();
       sendAck(num, requestId, "setBrightness", true);
       broadcastStats();
-    } else if (type == "setPower") {
+    }
+    else if (type == "setPower")
+    {
       // 设置电源状态：true=开启，false=关闭
       bool powered = doc["powered"].as<bool>();
       MATRIX_OFF = !powered;
@@ -293,7 +352,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       sendAck(num, requestId, "setPower", true);
       // 立即广播状态更新
       broadcastStats();
-    } else if (type == "setAutoBrightness") {
+    }
+    else if (type == "setAutoBrightness")
+    {
       // LDR 自动亮度开关
       // 协议: {type:"setAutoBrightness", enabled: true/false}
       bool enabled = doc["enabled"].as<bool>();
@@ -302,7 +363,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       saveSettings();
       sendAck(num, requestId, "setAutoBrightness", true);
       broadcastStats();
-    } else if (type == "setAutoPlay") {
+    }
+    else if (type == "setAutoPlay")
+    {
       // 设置自动轮播：true=开启，false=关闭
       bool autoPlay = doc["autoPlay"].as<bool>();
       AUTO_TRANSITION = autoPlay;
@@ -311,7 +374,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       sendAck(num, requestId, "setAutoPlay", true);
       // 立即广播状态更新
       broadcastStats();
-    } else if (type == "setWeatherConfig") {
+    }
+    else if (type == "setWeatherConfig")
+    {
       String city =
           doc.containsKey("city") ? doc["city"].as<String>() : String("");
       String apiKey =
@@ -320,11 +385,13 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       city.trim();
       apiKey.trim();
 
-      if (city.length() == 0) {
+      if (city.length() == 0)
+      {
         sendAck(num, requestId, "setWeatherConfig", false, "missing city");
         return;
       }
-      if (apiKey.length() == 0) {
+      if (apiKey.length() == 0)
+      {
         sendAck(num, requestId, "setWeatherConfig", false, "missing apiKey");
         return;
       }
@@ -335,7 +402,9 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
 
       sendAck(num, requestId, "setWeatherConfig", true);
       broadcastConfig();
-    } else if (type == "setDisplayConfig") {
+    }
+    else if (type == "setDisplayConfig")
+    {
       // 仅做持久化与回填；颜色校准暂不处理具体效果
       String layout =
           doc.containsKey("layout") ? doc["layout"].as<String>() : String("");
@@ -354,13 +423,17 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       saveSettings();
       sendAck(num, requestId, "setDisplayConfig", true);
       broadcastConfig();
-    } else if (type == "settingsUpdate") {
+    }
+    else if (type == "settingsUpdate")
+    {
       // 旧协议保留向后兼容，但不再作为新路径使用
-      if (doc.containsKey("settings")) {
+      if (doc.containsKey("settings"))
+      {
         auto s = doc["settings"];
         if (s.containsKey("appTime"))
           TIME_PER_APP = s["appTime"].as<int>();
-        if (s.containsKey("brightness")) {
+        if (s.containsKey("brightness"))
+        {
           int value = s["brightness"].as<int>();
           BRIGHTNESS =
               value <= 100 ? (uint8_t)((value * 255) / 100) : (uint8_t)value;
@@ -378,40 +451,59 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
         sendAck(num, requestId, "settingsUpdate", true);
         broadcastConfig();
         broadcastStats();
-      } else {
+      }
+      else
+      {
         sendAck(num, requestId, "settingsUpdate", false, "missing settings");
       }
-    } else if (type == "appNext") {
+    }
+    else if (type == "appNext")
+    {
       DisplayManager.nextApp();
       sendAck(num, requestId, "appNext", true);
       broadcastStats();
-    } else if (type == "appPrev") {
+    }
+    else if (type == "appPrev")
+    {
       DisplayManager.previousApp();
       sendAck(num, requestId, "appPrev", true);
       broadcastStats();
-    } else if (type == "cmd") {
+    }
+    else if (type == "cmd")
+    {
       String action = doc["action"].as<String>();
-      if (action == "next") {
+      if (action == "next")
+      {
         DisplayManager.nextApp();
         sendAck(num, requestId, "cmd.next", true);
         // 切换应用后立即广播状态
         broadcastStats();
-      } else if (action == "prev") {
+      }
+      else if (action == "prev")
+      {
         DisplayManager.previousApp();
         sendAck(num, requestId, "cmd.prev", true);
         // 切换应用后立即广播状态
         broadcastStats();
-      } else if (action == "toggle") {
+      }
+      else if (action == "toggle")
+      {
         // 保留 toggle 命令以保持向后兼容
         MATRIX_OFF = !MATRIX_OFF;
         DisplayManager.setBrightness(BRIGHTNESS);
         saveSettings();
         broadcastStats();
-      } else if (action == "restart") {
+      }
+      else if (action == "restart")
+      {
         ESP.restart();
-      } else if (action == "leftClick") {
+      }
+      else if (action == "leftClick")
+      {
         DisplayManager.leftButton();
-      } else if (action == "rightClick") {
+      }
+      else if (action == "rightClick")
+      {
         DisplayManager.rightButton();
       }
     }
@@ -433,7 +525,8 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
  */
 void ServerManager_::sendAck(uint8_t num, const String &requestId,
                              const String &action, bool ok,
-                             const String &message) {
+                             const String &message)
+{
   StaticJsonDocument<256> doc;
   doc["type"] = ok ? "ack" : "error";
   if (requestId.length() > 0)
@@ -452,14 +545,16 @@ void ServerManager_::sendAck(uint8_t num, const String &requestId,
  *
  * 发送所有应用的配置（启用状态、位置、颜色、图标等）
  */
-void ServerManager_::broadcastConfig() {
+void ServerManager_::broadcastConfig()
+{
   StaticJsonDocument<2048> doc;
   doc["type"] = "config";
 
   JsonObject data = doc.createNestedObject("data");
   JsonArray appsArr = data.createNestedArray("apps");
 
-  for (auto &app : Apps) {
+  for (auto &app : Apps)
+  {
     JsonObject appObj = appsArr.createNestedObject();
     appObj["id"] = app.name;
     appObj["name"] = app.name;
@@ -482,33 +577,48 @@ void ServerManager_::broadcastConfig() {
     appObj["position"] = app.position;
     appObj["duration"] = app.duration;
 
-    if (app.name == "time") {
+    if (app.name == "time")
+    {
       appObj["color"] = TIME_COLOR;
       appObj["weekdayActive"] = TIME_WEEKDAY_ACTIVE_COLOR;
       appObj["weekdayInactive"] = TIME_WEEKDAY_INACTIVE_COLOR;
       appObj["timeFormat"] = TIME_FORMAT; // 添加时间格式
-      if (TIME_ICON.length() > 0) {
+      if (TIME_ICON.length() > 0)
+      {
         appObj["iconName"] = TIME_ICON;
       }
-    } else if (app.name == "date") {
+    }
+    else if (app.name == "date")
+    {
       appObj["color"] = DATE_COLOR;
       appObj["weekdayActive"] = DATE_WEEKDAY_ACTIVE_COLOR;
       appObj["weekdayInactive"] = DATE_WEEKDAY_INACTIVE_COLOR;
       appObj["dateFormat"] = DATE_FORMAT; // 添加日期格式
-      if (DATE_ICON.length() > 0) {
+      if (DATE_ICON.length() > 0)
+      {
         appObj["iconName"] = DATE_ICON;
       }
-    } else if (app.name == "temp") {
+    }
+    else if (app.name == "temp")
+    {
       appObj["color"] = TEMP_COLOR;
-    } else if (app.name == "hum") {
+    }
+    else if (app.name == "hum")
+    {
       appObj["color"] = HUM_COLOR;
-    } else if (app.name == "wind") {
+    }
+    else if (app.name == "wind")
+    {
       appObj["color"] = WIND_COLOR;
-      if (WIND_ICON.length() > 0) {
+      if (WIND_ICON.length() > 0)
+      {
         appObj["iconName"] = WIND_ICON;
       }
-    } else if (app.name == "weather") {
-      if (APP_WEATHER_ICON.length() > 0) {
+    }
+    else if (app.name == "weather")
+    {
+      if (APP_WEATHER_ICON.length() > 0)
+      {
         appObj["iconName"] = APP_WEATHER_ICON;
       }
     }
@@ -538,7 +648,8 @@ void ServerManager_::broadcastConfig() {
  *
  * 发送温湿度、亮度、自动亮度、当前应用、电源状态、自动播放等
  */
-void ServerManager_::broadcastStats() {
+void ServerManager_::broadcastStats()
+{
   StaticJsonDocument<512> doc;
   doc["type"] = "stats";
 
@@ -570,8 +681,10 @@ void ServerManager_::broadcastStats() {
  *
  * 由 Liveview 类回调调用，通过 WebSocket 广播二进制数据
  */
-void ServerManager_::sendLiveviewData(const char *data, size_t length) {
-  if (ws->connectedClients() > 0 && EnableLiveview) {
+void ServerManager_::sendLiveviewData(const char *data, size_t length)
+{
+  if (ws->connectedClients() > 0 && EnableLiveview)
+  {
     ws->broadcastBIN((uint8_t *)data, length);
   }
 }
@@ -581,7 +694,8 @@ void ServerManager_::sendLiveviewData(const char *data, size_t length) {
  * @param event 事件类型
  * @param data 事件数据
  */
-void ServerManager_::notifyClients(const String &event, const String &data) {
+void ServerManager_::notifyClients(const String &event, const String &data)
+{
   StaticJsonDocument<256> doc;
   doc["type"] = event;
   doc["data"]["app"] = data;
@@ -596,7 +710,8 @@ void ServerManager_::notifyClients(const String &event, const String &data) {
  * @param rgb565 RGB565 颜色值
  * @return HEX 格式颜色字符串 (如 "#FFFFFF")
  */
-String ServerManager_::rgb565ToHex(uint16_t rgb565) {
+String ServerManager_::rgb565ToHex(uint16_t rgb565)
+{
   // RGB565格式: RRRRR GGGGGG BBBBB
   uint8_t r = ((rgb565 >> 11) & 0x1F) << 3; // 5位红色，扩展到8位
   uint8_t g = ((rgb565 >> 5) & 0x3F) << 2;  // 6位绿色，扩展到8位
@@ -613,7 +728,8 @@ String ServerManager_::rgb565ToHex(uint16_t rgb565) {
  *
  * 从 LittleFS /icons 目录读取所有 .anim 文件并发送
  */
-void ServerManager_::sendIconList(uint8_t num) {
+void ServerManager_::sendIconList(uint8_t num)
+{
   Serial.println("[WS] Scanning LittleFS /icons directory...");
 
   DynamicJsonDocument doc(4096); // 增加容量以处理更多文件名
@@ -621,7 +737,8 @@ void ServerManager_::sendIconList(uint8_t num) {
   JsonArray icons = doc.createNestedArray("data");
 
   File root = LittleFS.open("/icons");
-  if (!root || !root.isDirectory()) {
+  if (!root || !root.isDirectory())
+  {
     Serial.println("[WS] Error: /icons directory not found");
     // 发送空列表
     String output;
@@ -632,14 +749,17 @@ void ServerManager_::sendIconList(uint8_t num) {
 
   File file = root.openNextFile();
   int count = 0;
-  while (file) {
+  while (file)
+  {
     String fileName = file.name();
     // 兼容处理：有些版本的 LittleFS file.name() 可能返回全路径，我们只取文件名
-    if (fileName.lastIndexOf('/') != -1) {
+    if (fileName.lastIndexOf('/') != -1)
+    {
       fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
     }
 
-    if (!file.isDirectory() && fileName.endsWith(".anim") && file.size() > 0) {
+    if (!file.isDirectory() && fileName.endsWith(".anim") && file.size() > 0)
+    {
       JsonObject obj = icons.createNestedObject();
       obj["type"] = "FS";
       obj["val"] = fileName;
@@ -660,12 +780,14 @@ void ServerManager_::sendIconList(uint8_t num) {
  * @brief 初始化 WebSocket 服务器
  * @param websocket WebSocket 服务器实例指针
  */
-void ServerManager_::setup(WebSocketsServer *websocket) {
+void ServerManager_::setup(WebSocketsServer *websocket)
+{
   this->ws = websocket;
 
   ws->begin();
   ws->onEvent(
-      [this](uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+      [this](uint8_t num, WStype_t type, uint8_t *payload, size_t length)
+      {
         this->handleWebSocketEvent(num, type, payload, length);
       });
 

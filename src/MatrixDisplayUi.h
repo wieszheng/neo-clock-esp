@@ -14,6 +14,7 @@
 #define MATRIX_DISPLAY_UI_H
 
 #include "FastFramePlayer.h"
+#include "DisplayManager.h"
 #include <FastLED_NeoMatrix.h>
 #include <vector>
 
@@ -22,13 +23,15 @@
 // ==================================================================
 
 /// 应用显示状态
-enum AppState {
+enum AppState
+{
   FIXED,        ///< 固定显示（当前应用正在展示）
   IN_TRANSITION ///< 过渡动画中（正在切换到下一应用）
 };
 
 /// 切换动画方向
-enum AnimationDirection {
+enum AnimationDirection
+{
   SLIDE_UP,   ///< 当前页上滑移出，新页从底部滑入
   SLIDE_DOWN, ///< 当前页下滑移出，新页从顶部滑入
   SLIDE_LEFT, ///< (预留) 左滑
@@ -40,14 +43,15 @@ enum AnimationDirection {
 // ==================================================================
 
 /// UI 引擎的运行时状态
-struct MatrixDisplayUiState {
+struct MatrixDisplayUiState
+{
   AppState appState = FIXED;         ///< 当前状态 (FIXED / IN_TRANSITION)
   int currentApp = 0;                ///< 当前显示的应用索引
   int ticksSinceLastStateSwitch = 0; ///< 从上次状态切换以来经过的 tick 数
   int8_t appTransitionDirection = 1; ///< 切换方向 (+1=正向, -1=反向)
   bool manuelControll = false;       ///< 是否处于手动控制模式
   unsigned long lastUpdate =
-      0; ///< 上次 update() 调用的时间戳（unsigned 防溢出）
+      0;                  ///< 上次 update() 调用的时间戳（unsigned 防溢出）
   int cachedNextApp = -1; ///< 过渡开始时锁定的目标 App 索引，-1=未锁定
 };
 
@@ -79,7 +83,8 @@ typedef void (*OverlayCallback)(FastLED_NeoMatrix *, MatrixDisplayUiState *,
 // ==================================================================
 
 /// 描述一个显示应用的元数据
-struct AppData {
+struct AppData
+{
   String name;          ///< 应用名称 (如 "time", "date")
   AppCallback callback; ///< 绘制回调函数
   bool enabled;         ///< 是否启用
@@ -102,7 +107,8 @@ struct AppData {
  *   - 在 App 之上绘制覆盖层 (通知/闹钟等)
  *   - 帧率控制和丢帧补偿
  */
-class MatrixDisplayUi {
+class MatrixDisplayUi
+{
 private:
   FastLED_NeoMatrix *matrix;  ///< 矩阵硬件驱动
   MatrixDisplayUiState state; ///< 运行时状态
@@ -112,20 +118,20 @@ private:
   int ticksPerTransition;                   ///< 过渡动画的 tick 数
   float updateInterval;                     ///< 帧间隔 (ms)
   AnimationDirection appAnimationDirection; ///< 动画方向
-  int nextAppNumber; ///< 手动指定的下一应用 (-1=未指定)
-  int8_t lastTransitionDirection; ///< 手动控制前的方向（用于恢复）
-  bool setAutoTransition;         ///< 是否启用自动轮播
-  int _enabledAppCount = 0; ///< 缓存的已启用 App 数量，避免每帧遍历
+  int nextAppNumber;                        ///< 手动指定的下一应用 (-1=未指定)
+  int8_t lastTransitionDirection;           ///< 手动控制前的方向（用于恢复）
+  bool setAutoTransition;                   ///< 是否启用自动轮播
+  int _enabledAppCount = 0;                 ///< 缓存的已启用 App 数量，避免每帧遍历
 
   // 覆盖层
   OverlayCallback *overlayFunctions; ///< 覆盖层回调数组
   uint8_t overlayCount;              ///< 覆盖层数量
 
   // --- 内部方法 ---
-  int getNextAppNumber(); ///< 计算下一应用索引（有副作用，仅在过渡开始时调用一次）
-  void drawApp();         ///< 渲染当前/过渡中的应用
-  void drawOverlays();    ///< 渲染覆盖层
-  void tick();            ///< 状态机推进 + 绘制一帧
+  int getNextAppNumber();      ///< 计算下一应用索引（有副作用，仅在过渡开始时调用一次）
+  void drawApp();              ///< 渲染当前/过渡中的应用
+  void drawOverlays();         ///< 渲染覆盖层
+  void tick();                 ///< 状态机推进 + 绘制一帧
   void _rebuildEnabledCount(); ///< 预计算并缓存 enabledCount [Fix3]
 
 public:

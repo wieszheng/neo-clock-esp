@@ -47,15 +47,19 @@ WebSocketsServer webSocket(81);
  *   9. WebSocket 服务器
  *   10. Liveview 实时预览
  */
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   Serial.println("\n\n=== NeoClock 矩阵时钟启动 ===");
 
   // 初始化 LittleFS 文件系统
   Serial.println("初始化文件系统...");
-  if (!LittleFS.begin(true, "/littlefs")) {
+  if (!LittleFS.begin(true, "/littlefs"))
+  {
     Serial.println("LittleFS 挂载失败！正在格式化...");
-  } else {
+  }
+  else
+  {
     Serial.println("LittleFS 挂载成功");
   }
 
@@ -68,11 +72,6 @@ void setup() {
   // 加载全局设置
   Serial.println("加载设置...");
   loadSettings();
-
-  // 同步 LDR 自动亮度设置（loadSettings 已恢复 AUTO_BRIGHTNESS）
-  if (AUTO_BRIGHTNESS) {
-    PeripheryManager.setAutoBrightness(true);
-  }
 
   // ========================================
   // Web 配网管理器 (核心！)
@@ -97,13 +96,14 @@ void setup() {
 
   // 初始化 Liveview
   Serial.println("初始化 Liveview...");
-  Liveview.setCallback([](const char *data, size_t length) {
+  Liveview.setCallback([](const char *data, size_t length)
+                       {
     if (WebConfigManager.isConnected()) {
       ServerManager.sendLiveviewData(data, length);
-    }
-  });
+    } });
 
-  if (WebConfigManager.isAPMode()) {
+  if (WebConfigManager.isAPMode())
+  {
     // AP 配网模式提示
     Serial.println("⚠️ WiFi 未连接，进入配网模式");
     Serial.printf("请连接热点: %s\n", WebConfigManager.getAPName().c_str());
@@ -114,10 +114,13 @@ void setup() {
   Serial.println("   系统初始化完成");
   Serial.println("========================================");
 
-  if (WebConfigManager.isConnected()) {
+  if (WebConfigManager.isConnected())
+  {
     Serial.printf("WiFi: 已连接 (%s)\n", WiFi.SSID().c_str());
     Serial.printf("IP 地址: %s\n", WiFi.localIP().toString().c_str());
-  } else {
+  }
+  else
+  {
     Serial.printf("模式: AP 配网 (IP: %s)\n",
                   WiFi.softAPIP().toString().c_str());
   }
@@ -147,7 +150,8 @@ void setup() {
  *   - Liveview 采样在 ws->loop() 之前，避免网络延迟影响渲染
  *   - Liveview.flush() 在 ws->loop() 之后，此时 TCP 缓冲区腾空，阻塞概率最低
  */
-void loop() {
+void loop()
+{
   // 配网管理器始终需要 tick（处理HTTP请求、DNS、断线重连等）
   WebConfigManager.tick();
 
@@ -161,12 +165,14 @@ void loop() {
   PeripheryManager.tick();
 
   // 3. WebSocket 收包处理（ws->loop），让 TCP 内核缓冲区尽量腾空
-  if (WebConfigManager.isConnected()) {
+  if (WebConfigManager.isConnected())
+  {
     ServerManager.tick();
   }
 
   // 4. 发送采样帧（在 ws->loop() 之后，TCP 缓冲区最宽裕，阻塞概率最低）
-  if (WebConfigManager.isConnected()) {
+  if (WebConfigManager.isConnected())
+  {
     Liveview.flush();
   }
 }

@@ -5,20 +5,17 @@
  * 本文件实现：
  *   - 系统初始化 (LittleFS、外设、显示、网络等)
  *   - 主循环调度
- *   - 各模块协调 (显示、传感器、通信、音频)
+ *   - 各模块协调 (显示、传感器、通信)
  *
  * 硬件平台: ESP32
  * 矩阵规格: 32×8 LED (WS2812B/SK6812)
- * 音频采集: INMP441 麦克风 (I2S)
  */
 
-#include "AudioManager.h"
 #include "DisplayManager.h"
 #include "Liveview.h"
 #include "Logger.h"
 #include "PeripheryManager.h"
 #include "ServerManager.h"
-#include "SpectrumManager.h"
 #include "WeatherManager.h"
 #include "WebConfigManager.h"
 #include <Arduino.h>
@@ -45,13 +42,11 @@ WebSocketsServer webSocket(81);
  *   3. 外设 (DHT22、LDR)
  *   4. LED 矩阵显示
  *   5. 加载配置
- *   6. 音频采集管理器 (INMP441)
- *   7. 频谱分析管理器 (FFT)
- *   8. WiFi 配网管理器 (核心)
- *   9. 天气管理器
- *   10. 应用加载
- *   11. WebSocket 服务器
- *   12. Liveview 实时预览
+ *   6. WiFi 配网管理器 (核心)
+ *   7. 天气管理器
+ *   8. 应用加载
+ *   9. WebSocket 服务器
+ *   10. Liveview 实时预览
  */
 void setup()
 {
@@ -83,20 +78,6 @@ void setup()
   // 加载全局设置
   LOG_INFO("[Main] 加载设置...");
   loadSettings();
-
-  // 初始化音频采集管理器
-  LOG_INFO("[Main] 初始化音频采集...");
-  AudioManager.setup();
-
-  // 初始化频谱分析管理器
-  LOG_INFO("[Main] 初始化频谱分析...");
-  SpectrumManager.setup();
-
-  // 应用频谱配置
-  SpectrumManager.setSmoothing(SPECTRUM_SMOOTHING_VALUE);
-  SpectrumManager.setDecay(SPECTRUM_DECAY_VALUE);
-  SpectrumManager.setSensitivity(SPECTRUM_SENSITIVITY);
-  SpectrumManager.setMode((SpectrumMode)SPECTRUM_MODE);
 
   // ========================================
   // Web 配网管理器 (核心！)
@@ -164,13 +145,11 @@ void setup()
  *
  * 循环顺序 (保证性能和正确性)：
  *   1. WebConfigManager.tick() - 始终需要 (处理配网、DNS、重连等)
- *   2. AudioManager.tick() - 音频数据采集
- *   3. SpectrumManager.update() - FFT 频谱分析
- *   4. DisplayManager.tick() - 渲染当前帧到 leds[]
- *   5. Liveview.tick() - 采样 leds[] (纯内存操作，极快)
- *   6. PeripheryManager.tick() - 传感器读取、LDR 更新
- *   7. ServerManager.tick() - WebSocket 收包处理 (ws->loop())
- *   8. Liveview.flush() - 发送采样帧 (TCP 缓冲区最宽裕时)
+ *   2. DisplayManager.tick() - 渲染当前帧到 leds[]
+ *   3. Liveview.tick() - 采样 leds[] (纯内存操作，极快)
+ *   4. PeripheryManager.tick() - 传感器读取、LDR 更新
+ *   5. ServerManager.tick() - WebSocket 收包处理 (ws->loop())
+ *   6. Liveview.flush() - 发送采样帧 (TCP 缓冲区最宽裕时)
  *
  * 性能优化：
  *   - Liveview 采样在 ws->loop() 之前，避免网络延迟影响渲染
@@ -180,14 +159,6 @@ void loop()
 {
   // 配网管理器始终需要 tick（处理HTTP请求、DNS、断线重连等）
   WebConfigManager.tick();
-
-  // 音频采集
-  AudioManager.tick();
-  if (AudioManager.hasNewData())
-  {
-    SpectrumManager.update(AudioManager.getAudioBuffer(), FFT_SIZE);
-    AudioManager.resetNewDataFlag();
-  }
 
   // 1. 渲染当前帧到 leds[]
   DisplayManager.tick();

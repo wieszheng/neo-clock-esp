@@ -26,6 +26,7 @@
 enum DisplayStatus
 {
   DISPLAY_NORMAL = 0,    ///< 正常应用显示模式
+  DISPLAY_BOOT,          ///< 启动画面 - 显示 NeoClock
   DISPLAY_AP_MODE,       ///< AP 配网模式 - 显示热点名称和 IP
   DISPLAY_CONNECTING,    ///< WiFi 连接中动画
   DISPLAY_CONNECTED,     ///< 连接成功 - 短暂显示 IP 地址
@@ -205,6 +206,13 @@ public:
    */
   void setDisplayStatus(DisplayStatus status, const String &line1 = "",
                         const String &line2 = "");
+
+  /**
+   * @brief 显示启动画面
+   *
+   * 显示 NeoClock 文字，3秒后自动切换到正常模式
+   */
+  void showBootScreen();
 
   /**
    * @brief 获取当前显示状态

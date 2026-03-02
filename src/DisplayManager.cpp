@@ -219,6 +219,9 @@ void DisplayManager_::tick()
     matrix->clear();
     switch (_state.status)
     {
+    case DISPLAY_BOOT:
+      _renderBoot();
+      break;
     case DISPLAY_AP_MODE:
       _renderAPMode();
       break;
@@ -381,6 +384,13 @@ void DisplayManager_::setDisplayStatus(DisplayStatus status,
   LOG_INFO("[Display] 状态切换: %d, L1='%s', L2='%s'", status, line1.c_str(), line2.c_str());
 }
 
+void DisplayManager_::showBootScreen()
+{
+  _state.status = DISPLAY_BOOT;
+  _state.startTime = millis();
+  LOG_INFO("[Display] 显示启动画面");
+}
+
 // 辅助: RGB565 转换宏
 #define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
@@ -442,12 +452,8 @@ void DisplayManager_::_renderAPMode()
   // 填充黑色矩形覆盖文字，防止文字穿透图标
   matrix->fillRect(0, 0, 9, 8, 0);
 
-  // 3. 绘制图标和分隔线 (前景层)
+  // 3. 绘制图标 (前景层)
   _drawWiFiIcon(0, 0, iconColor);
-
-  uint16_t dimColor = RGB565(0x30, 0x30, 0x50);
-  for (int i = 0; i < 8; i++)
-    matrix->drawPixel(8, i, dimColor);
 }
 
 void DisplayManager_::_renderConnecting()
@@ -543,4 +549,26 @@ void DisplayManager_::_renderConnectFailed()
   matrix->setTextColor(xColor);
   matrix->setCursor(10, 6);
   matrix->print("FAIL");
+}
+
+void DisplayManager_::_renderBoot()
+{
+  unsigned long elapsed = millis() - _state.startTime;
+
+  // 3秒后自动切换到正常模式
+  if (elapsed > 3000)
+  {
+    _state.status = DISPLAY_NORMAL;
+    return;
+  }
+
+  // 呼吸效果
+  float breath = (sin(elapsed * 0.005) + 1.0) * 0.5;
+  uint8_t intensity = 80 + (uint8_t)(breath * 175);
+  uint16_t textColor = RGB565(intensity, intensity, intensity);
+
+  // 显示 NeoClock 文字
+  matrix->setTextColor(textColor);
+  matrix->setCursor(0, 1);
+  matrix->print("NeoClock");
 }

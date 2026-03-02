@@ -67,6 +67,9 @@ void WebConfigManager_::setup()
                        "time.nist.gov");
             LOG_INFO("[WebConfig] NTP 时间同步已配置 (UTC+8)");
 
+            // 启动 mDNS/SSDP
+            startMDNS();
+
             // 显示连接成功画面
             DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, savedSSID,
                                             WiFi.localIP().toString());
@@ -91,6 +94,9 @@ void WebConfigManager_::setup()
 
 void WebConfigManager_::tick()
 {
+    // 更新 mDNS
+    MDNS.update();
+
     // AP 配网模式下的处理
     if (portalActive)
     {
@@ -116,6 +122,9 @@ void WebConfigManager_::tick()
             // NTP 时间同步
             configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org",
                        "time.nist.gov");
+
+            // 启动 mDNS/SSDP
+            startMDNS();
 
             // 显示连接成功画面 (5秒后自动切换到正常模式)
             DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, connectingSSID,
@@ -364,6 +373,9 @@ void WebConfigManager_::startHTTPServer()
 
     httpServer->onNotFound([this]()
                            { handleNotFound(); });
+
+    // SSDP 路由
+    httpServer->on("/ssdp", HTTP_GET, [this]() { handleSSDP(); });
 
     httpServer->begin();
     LOG_INFO("[WebConfig] HTTP 服务器已启动 (端口 80)");
@@ -1285,4 +1297,71 @@ const char *WebConfigManager_::getConfigPageHtml()
 )rawliteral";
 
     return html;
+}
+
+// =====================================================
+// mDNS / SSDP 设备发现
+// =====================================================
+
+void WebConfigManager_::startMDNS()
+{
+    // 停止旧的 mDNS 服务
+    stopMDNS();
+
+    if (MDNS.begin(MDNS_NAME))
+    {
+        LOG_INFO("[WebConfig] mDNS 服务已启动: %s.local", MDNS_NAME);
+
+        // 添加 HTTP 服务
+        MDNS.addService(MDNS_SERVICE, "tcp", MDNS_PORT);
+
+        // 添加设备信息
+        MDNS.addServiceTxt(MDNS_SERVICE, "tcp", "device", "NeoClock");
+        MDNS.addServiceTxt(MDNS_SERVICE, "tcp", "version", "1.0");
+    }
+    else
+    {
+        LOG_WARN("[WebConfig] mDNS 服务启动失败");
+    }
+}
+
+void WebConfigManager_::stopMDNS()
+{
+    MDNS.end();
+}
+
+void WebConfigManager_::handleSSDP()
+{
+    if (!httpServer)
+        return;
+
+    String resp = getSSDPResponse();
+
+    httpServer->sendHeader("AL", "M-SEARCH * HTTP/1.1");
+    httpServer->sendHeader("MAN", "\"ssdp:discover\"");
+    httpServer->sendHeader("MX", "3");
+    httpServer->sendHeader("ST", "urn:schemas-upnp-org:device:Basic:1");
+    httpServer->sendHeader("Content-Length", String(resp.length()));
+    httpServer->send(200, "application/xml", resp);
+}
+
+String WebConfigManager_::getSSDPResponse()
+{
+    String resp = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+    resp += "<root xmlns=\"urn:schemas-upnp-org:device-1-0\">\n";
+    resp += "  <specVersion>\n";
+    resp += "    <major>1</major>\n";
+    resp += "    <minor>0</minor>\n";
+    resp += "  </specVersion>\n";
+    resp += "  <device>\n";
+    resp += "    <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>\n";
+    resp += "    <friendlyName>NeoClock LED Matrix</friendlyName>\n";
+    resp += "    <manufacturer>NeoClock</manufacturer>\n";
+    resp += "    <modelName>NeoClock ESP32</modelName>\n";
+    resp += "    <modelNumber>1.0</modelNumber>\n";
+    resp += "    <serialNumber>" + WiFi.macAddress() + "</serialNumber>\n";
+    resp += "    <presentationURL>http://" + WiFi.localIP().toString() + "/</presentationURL>\n";
+    resp += "  </device>\n";
+    resp += "</root>";
+    return resp;
 }

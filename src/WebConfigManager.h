@@ -1,12 +1,13 @@
 /**
  * @file WebConfigManager.h
- * @brief WiFi 配网管理器 — AP 模式、DNS、HTTP 服务器
+ * @brief WiFi 配网管理器 — AP 模式、DNS、HTTP 服务器、mDNS、SSDP
  *
  * 本文件定义：
  *   - WebConfigManager_ 单例类: 管理 WiFi 配网
  *   - WiFi 连接状态枚举
  *   - AP 模式配置常量
  *   - Captive Portal 功能
+ *   - mDNS + SSDP 局域网设备发现
  */
 
 #ifndef WEB_CONFIG_MANAGER_H
@@ -14,9 +15,23 @@
 
 #include <Arduino.h>
 #include <DNSServer.h>
+#include <ESPmDNS.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
+
+// ==================================================================
+// mDNS/SSDP 配置
+// ==================================================================
+
+/// mDNS 服务名称
+#define MDNS_NAME "neoclock"
+
+/// mDNS 服务类型
+#define MDNS_SERVICE "http"
+
+/// mDNS 服务端口
+#define MDNS_PORT 80
 
 // ==================================================================
 // AP 模式配置
@@ -55,6 +70,9 @@
 
 /// DNS 服务端口
 #define DNS_PORT 53
+
+/// SSDP 服务端口
+#define SSDP_PORT 1900
 
 // ==================================================================
 // WiFi 凭据配置
@@ -181,6 +199,22 @@ private:
 
   /// 停止 DNS 服务器
   void stopDNS();
+
+  // ==================================================================
+  // mDNS/SSDP
+  // ==================================================================
+
+  /// 启动 mDNS 服务
+  void startMDNS();
+
+  /// 停止 mDNS 服务
+  void stopMDNS();
+
+  /// 处理 SSDP 请求
+  void handleSSDP();
+
+  /// 生成 SSDP 响应消息
+  String getSSDPResponse();
 
   // ==================================================================
   // HTTP 路由处理

@@ -7,6 +7,7 @@
  *   - 温度/湿度应用 (显示 DHT22 传感器数据)
  *   - 天气应用 (显示室外天气)
  *   - 风速应用 (显示风速数据)
+ *   - 频谱应用 (音乐律动可视化)
  *   - 星期指示条绘制
  *   - 覆盖层函数 (预留扩展)
  */
@@ -16,6 +17,10 @@
 #include "Globals.h"
 #include "Tools.h"
 #include <time.h>
+
+// 频谱管理器前向声明
+class SpectrumManager_;
+extern SpectrumManager_ &SpectrumManager;
 
 // ==================================================================
 // 全局应用列表
@@ -275,13 +280,79 @@ void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 }
 
 // ==================================================================
+// 频谱应用
+// ==================================================================
+
+/**
+ * @brief RGB565 颜色线性插值
+ * @param color1 起始颜色 (RGB565)
+ * @param color2 结束颜色 (RGB565)
+ * @param ratio 插值比例 (0.0-1.0)
+ * @return 插值后的颜色 (RGB565)
+ */
+static uint16_t lerpColor(uint16_t color1, uint16_t color2, float ratio)
+{
+  // RGB565 转换为 RGB888
+  uint8_t r1 = ((color1 >> 11) & 0x1F) << 3;
+  uint8_t g1 = ((color1 >> 5) & 0x3F) << 2;
+  uint8_t b1 = (color1 & 0x1F) << 3;
+
+  uint8_t r2 = ((color2 >> 11) & 0x1F) << 3;
+  uint8_t g2 = ((color2 >> 5) & 0x3F) << 2;
+  uint8_t b2 = (color2 & 0x1F) << 3;
+
+  // 线性插值
+  uint8_t r = (uint8_t)(r1 + (r2 - r1) * ratio);
+  uint8_t g = (uint8_t)(g1 + (g2 - g1) * ratio);
+  uint8_t b = (uint8_t)(b1 + (b2 - b1) * ratio);
+
+  // RGB888 转换为 RGB565
+  return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
+}
+
+void SpectrumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
+                 int16_t x, int16_t y, FastFramePlayer *player)
+{
+  CURRENT_APP = "Spectrum";
+
+  // 获取频谱数据
+  const uint8_t *barHeights = SpectrumManager.getBarHeights();
+  const uint8_t *peaks = SpectrumManager.getPeaks();
+
+  // 获取颜色配置
+  uint16_t colorStart = HEXtoColor(SPECTRUM_COLOR_START.c_str());
+  uint16_t colorEnd = HEXtoColor(SPECTRUM_COLOR_END.c_str());
+
+  // 渲染频谱
+  for (int i = 0; i < MATRIX_WIDTH; i++)
+  {
+    // 计算颜色渐变
+    float ratio = (float)i / (float)(MATRIX_WIDTH - 1);
+    uint16_t color = lerpColor(colorStart, colorEnd, ratio);
+
+    // 绘制频谱条
+    uint8_t height = barHeights[i];
+    for (int h = 0; h < height; h++)
+    {
+      matrix->drawPixel(i + x, (MATRIX_HEIGHT - 1 - h) + y, color);
+    }
+
+    // 绘制峰值点
+    if (SPECTRUM_SHOW_PEAKS && peaks[i] > 0 && peaks[i] > height)
+    {
+      matrix->drawPixel(i + x, (MATRIX_HEIGHT - peaks[i]) + y, 0xFFFF); // 白色峰值
+    }
+  }
+}
+
+// ==================================================================
 // 覆盖层实现
 // ==================================================================
 
 void SpectrumOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                      FastFramePlayer *player)
 {
-  // 暂时为空，如果需要在所有界面显示频谱条可在此实现
+  // 频谱覆盖层（不需要实现）
 }
 
 void AlarmOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,

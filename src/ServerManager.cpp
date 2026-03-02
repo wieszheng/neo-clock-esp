@@ -287,6 +287,22 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
             if (app.containsKey("iconName"))
               APP_WEATHER_ICON = app["iconName"].as<String>();
           }
+          else if (name == "spectrum")
+          {
+            SHOW_SPECTRUM = show;
+            SPECTRUM_DURATION = duration;
+            SPECTRUM_POSITION = position;
+            if (app.containsKey("colorStart"))
+              SPECTRUM_COLOR_START = app["colorStart"].as<String>();
+            if (app.containsKey("colorEnd"))
+              SPECTRUM_COLOR_END = app["colorEnd"].as<String>();
+            if (app.containsKey("sensitivity"))
+              SPECTRUM_SENSITIVITY = app["sensitivity"].as<uint8_t>();
+            if (app.containsKey("mode"))
+              SPECTRUM_MODE = app["mode"].as<uint8_t>();
+            if (app.containsKey("showPeaks"))
+              SPECTRUM_SHOW_PEAKS = app["showPeaks"].as<bool>();
+          }
           // 更新Apps中的position和duration
           if (position >= 0)
           {
@@ -420,6 +436,33 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
 
       saveSettings();
       sendAck(num, requestId, "setDisplayConfig", true);
+      broadcastConfig();
+    }
+    else if (type == "setSpectrumConfig")
+    {
+      if (doc.containsKey("sensitivity"))
+        SPECTRUM_SENSITIVITY = doc["sensitivity"].as<uint8_t>();
+      if (doc.containsKey("smoothing"))
+        SPECTRUM_SMOOTHING_VALUE = doc["smoothing"].as<float>();
+      if (doc.containsKey("decay"))
+        SPECTRUM_DECAY_VALUE = doc["decay"].as<float>();
+      if (doc.containsKey("mode"))
+        SPECTRUM_MODE = doc["mode"].as<uint8_t>();
+      if (doc.containsKey("colorStart"))
+        SPECTRUM_COLOR_START = doc["colorStart"].as<String>();
+      if (doc.containsKey("colorEnd"))
+        SPECTRUM_COLOR_END = doc["colorEnd"].as<String>();
+      if (doc.containsKey("showPeaks"))
+        SPECTRUM_SHOW_PEAKS = doc["showPeaks"].as<bool>();
+
+      // 更新 SpectrumManager 配置
+      SpectrumManager.setSmoothing(SPECTRUM_SMOOTHING_VALUE);
+      SpectrumManager.setDecay(SPECTRUM_DECAY_VALUE);
+      SpectrumManager.setSensitivity(SPECTRUM_SENSITIVITY);
+      SpectrumManager.setMode((SpectrumMode)SPECTRUM_MODE);
+
+      saveSettings();
+      sendAck(num, requestId, "setSpectrumConfig", true);
       broadcastConfig();
     }
     else if (type == "settingsUpdate")
@@ -619,6 +662,15 @@ void ServerManager_::broadcastConfig()
       {
         appObj["iconName"] = APP_WEATHER_ICON;
       }
+    }
+    else if (app.name == "spectrum")
+    {
+      appObj["displayName"] = "频谱";
+      appObj["colorStart"] = SPECTRUM_COLOR_START;
+      appObj["colorEnd"] = SPECTRUM_COLOR_END;
+      appObj["sensitivity"] = SPECTRUM_SENSITIVITY;
+      appObj["mode"] = SPECTRUM_MODE;
+      appObj["showPeaks"] = SPECTRUM_SHOW_PEAKS;
     }
   }
 

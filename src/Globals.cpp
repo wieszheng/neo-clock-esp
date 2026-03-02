@@ -43,6 +43,15 @@ bool SHOW_SPECTRUM = true;
 int SPECTRUM_POSITION = 6;
 uint16_t SPECTRUM_DURATION = 10000;
 
+// 频谱配置
+uint8_t SPECTRUM_SENSITIVITY = 5;
+float SPECTRUM_SMOOTHING_VALUE = 0.6f;
+float SPECTRUM_DECAY_VALUE = 0.85f;
+uint8_t SPECTRUM_MODE = 2; // 镜像模式（默认）
+String SPECTRUM_COLOR_START = "#0000FF"; // 蓝色
+String SPECTRUM_COLOR_END = "#FF0000";   // 红色
+bool SPECTRUM_SHOW_PEAKS = true;
+
 String CURRENT_APP = "";
 
 // 应用配置
@@ -170,6 +179,18 @@ void loadSettings()
   WEATHER_POSITION = preferences.getInt("weatherPos", 4);
   WIND_POSITION = preferences.getInt("windPos", 5);
 
+  // 加载频谱配置
+  SHOW_SPECTRUM = preferences.getBool("showSpectrum", true);
+  SPECTRUM_POSITION = preferences.getInt("spectrumPos", 6);
+  SPECTRUM_DURATION = preferences.getUShort("spectrumDur", 10000);
+  SPECTRUM_SENSITIVITY = preferences.getUChar("spectrumSens", 5);
+  SPECTRUM_SMOOTHING_VALUE = preferences.getFloat("spectrumSmooth", 0.6f);
+  SPECTRUM_DECAY_VALUE = preferences.getFloat("spectrumDecay", 0.85f);
+  SPECTRUM_MODE = preferences.getUChar("spectrumMode", 2);
+  SPECTRUM_COLOR_START = preferences.getString("spectrumColorStart", "#0000FF");
+  SPECTRUM_COLOR_END = preferences.getString("spectrumColorEnd", "#FF0000");
+  SPECTRUM_SHOW_PEAKS = preferences.getBool("spectrumShowPeaks", true);
+
   preferences.end(); // 关闭 Preferences
 
   LOG_INFO("[Globals] 设置加载完成");
@@ -235,6 +256,18 @@ void saveSettings()
   preferences.putInt("humPos", HUM_POSITION);
   preferences.putInt("weatherPos", WEATHER_POSITION);
   preferences.putInt("windPos", WIND_POSITION);
+
+  // 保存频谱配置
+  preferences.putBool("showSpectrum", SHOW_SPECTRUM);
+  preferences.putInt("spectrumPos", SPECTRUM_POSITION);
+  preferences.putUShort("spectrumDur", SPECTRUM_DURATION);
+  preferences.putUChar("spectrumSens", SPECTRUM_SENSITIVITY);
+  preferences.putFloat("spectrumSmooth", SPECTRUM_SMOOTHING_VALUE);
+  preferences.putFloat("spectrumDecay", SPECTRUM_DECAY_VALUE);
+  preferences.putUChar("spectrumMode", SPECTRUM_MODE);
+  preferences.putString("spectrumColorStart", SPECTRUM_COLOR_START);
+  preferences.putString("spectrumColorEnd", SPECTRUM_COLOR_END);
+  preferences.putBool("spectrumShowPeaks", SPECTRUM_SHOW_PEAKS);
 
   preferences.end(); // 关闭 Preferences
 

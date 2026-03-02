@@ -334,7 +334,7 @@ void DisplayManager_::applyAllSettings()
 /**
  * @brief 加载内置应用列表
  *
- * 将时间、日期、温度、湿度、天气、风速应用添加到 Apps 列表，
+ * 将时间、日期、温度、湿度、天气、风速、频谱应用添加到 Apps 列表，
  * 并按 position 排序
  */
 void DisplayManager_::loadNativeApps()
@@ -348,6 +348,8 @@ void DisplayManager_::loadNativeApps()
   Apps.push_back({"weather", WeatherApp, SHOW_WEATHER, WEATHER_POSITION,
                   WEATHER_DURATION});
   Apps.push_back({"wind", WindApp, SHOW_WIND, WIND_POSITION, WIND_DURATION});
+  Apps.push_back({"spectrum", SpectrumApp, SHOW_SPECTRUM, SPECTRUM_POSITION,
+                  SPECTRUM_DURATION});
 
   std::sort(Apps.begin(), Apps.end(), [](const AppData &a, const AppData &b)
             { return a.position < b.position; });

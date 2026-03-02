@@ -203,6 +203,37 @@ extern int WEATHER_POSITION;
 /// 风速应用排序位置
 extern int WIND_POSITION;
 
+/// 频谱应用排序位置
+extern int SPECTRUM_POSITION;
+
+// ==================================================================
+// 频谱配置
+// ==================================================================
+
+/// 频谱应用显示时长 (毫秒)
+extern uint16_t SPECTRUM_DURATION;
+
+/// 频谱灵敏度 (1-10)
+extern uint8_t SPECTRUM_SENSITIVITY;
+
+/// 频谱平滑系数 (0.0-1.0)
+extern float SPECTRUM_SMOOTHING_VALUE;
+
+/// 频谱衰减系数 (0.0-1.0)
+extern float SPECTRUM_DECAY_VALUE;
+
+/// 频谱模式 (0=条形, 1=点阵, 2=镜像, 3=波形)
+extern uint8_t SPECTRUM_MODE;
+
+/// 频谱起始颜色 (HEX 格式)
+extern String SPECTRUM_COLOR_START;
+
+/// 频谱结束颜色 (HEX 格式)
+extern String SPECTRUM_COLOR_END;
+
+/// 是否显示峰值点
+extern bool SPECTRUM_SHOW_PEAKS;
+
 // ==================================================================
 // 传感器数据
 // ==================================================================

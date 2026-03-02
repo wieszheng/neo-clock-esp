@@ -9,6 +9,7 @@
  */
 
 #include "Globals.h"
+#include "Logger.h"
 #include <Preferences.h>
 
 // ==================================================================
@@ -171,11 +172,11 @@ void loadSettings()
 
   preferences.end(); // 关闭 Preferences
 
-  Serial.println("设置加载完成");
-  Serial.printf("应用切换时间: %d ms\n", TIME_PER_APP);
-  Serial.printf("亮度: %d\n", BRIGHTNESS);
-  Serial.printf("时间格式: %s\n", TIME_FORMAT.c_str());
-  Serial.printf("日期格式: %s\n", DATE_FORMAT.c_str());
+  LOG_INFO("[Globals] 设置加载完成");
+  LOG_INFO("[Globals] 应用切换时间: %d ms", TIME_PER_APP);
+  LOG_INFO("[Globals] 亮度: %d", BRIGHTNESS);
+  LOG_INFO("[Globals] 时间格式: %s", TIME_FORMAT.c_str());
+  LOG_INFO("[Globals] 日期格式: %s", DATE_FORMAT.c_str());
 }
 
 /**
@@ -237,5 +238,5 @@ void saveSettings()
 
   preferences.end(); // 关闭 Preferences
 
-  Serial.println("设置已保存");
+  LOG_INFO("[Globals] 设置已保存");
 }

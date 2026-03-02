@@ -11,9 +11,11 @@
  */
 #include <ArduinoJson.h>
 
-#include "DisplayManager.h"
 #include "Apps.h"
+#include "DisplayManager.h"
+#include "Globals.h"
 #include "Liveview.h"
+#include "Logger.h"
 #include "Tools.h"
 
 // ==================================================================
@@ -376,8 +378,7 @@ void DisplayManager_::setDisplayStatus(DisplayStatus status,
   _state.lastAnimTime = millis();
   _state.lastScrollTime = millis();
 
-  Serial.printf("[Display] 状态切换: %d, L1='%s', L2='%s'\n", status,
-                line1.c_str(), line2.c_str());
+  LOG_INFO("[Display] 状态切换: %d, L1='%s', L2='%s'", status, line1.c_str(), line2.c_str());
 }
 
 // 辅助: RGB565 转换宏

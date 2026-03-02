@@ -8,6 +8,7 @@
  *   - 增加 HTTP 响应流的超时和错误处理。
  */
 
+#include "Logger.h"
 #include "WeatherManager.h"
 #include "Globals.h"
 #include <ArduinoJson.h>
@@ -35,7 +36,7 @@ static void weatherTask(void *param) {
   (void)param;
   for (;;) {
     if (WEATHER_API_KEY.length() > 0 && WiFi.status() == WL_CONNECTED) {
-      // Serial.println("[WeatherTask] Starting fetch");
+      // LOG_DEBUG("Starting weather fetch");
       WeatherManager.fetchOnce();
     }
     vTaskDelay(WEATHER_UPDATE_INTERVAL / portTICK_PERIOD_MS);
@@ -48,7 +49,7 @@ void WeatherManager_::startBackgroundTask() {
     // 但为了安全起见保持 4096
     xTaskCreatePinnedToCore(weatherTask, "WeatherTask", 4096, NULL, 1,
                             &taskHandle, 1);
-    Serial.println("[Weather] Background task started");
+    LOG_INFO("[Weather] Background task started");
   }
 }
 
@@ -56,7 +57,7 @@ void WeatherManager_::stopBackgroundTask() {
   if (taskHandle != NULL) {
     vTaskDelete(taskHandle);
     taskHandle = NULL;
-    Serial.println("[Weather] Background task stopped");
+    LOG_INFO("[Weather] Background task stopped");
   }
 }
 
@@ -73,7 +74,7 @@ void WeatherManager_::fetchWeather() {
   WiFiClient client;
   HTTPClient http;
 
-  Serial.print("[Weather] Fetching...");
+  LOG_DEBUG("[Weather] Fetching weather data...");
 
   // [网络优化] 设置超时，防止网络卡顿时阻塞任务过久
   http.setTimeout(5000);
@@ -106,7 +107,7 @@ void WeatherManager_::fetchWeather() {
           if (main.containsKey("pressure"))
             WEATHER_PRESSURE = main["pressure"];
 
-          Serial.printf(" OK (%.1fC, %.0f%%)\n", OUTDOOR_TEMP, OUTDOOR_HUM);
+          LOG_INFO("[Weather] Data updated: %.1f°C, %.0f%%", OUTDOOR_TEMP, OUTDOOR_HUM);
         }
 
         // 解析天气描述与图标
@@ -150,14 +151,13 @@ void WeatherManager_::fetchWeather() {
           WEATHER_COD = doc["cod"];
 
       } else {
-        Serial.print("[Weather] JSON Parse Failed: ");
-        Serial.println(err.c_str());
+        LOG_ERROR("[Weather] JSON Parse Failed: %s", err.c_str());
       }
     } else {
-      Serial.printf("[Weather] HTTP Error: %d\n", httpCode);
+      LOG_ERROR("[Weather] HTTP Error: %d", httpCode);
     }
     http.end();
   } else {
-    Serial.println("[Weather] Connection failed");
+    LOG_ERROR("[Weather] Connection failed");
   }
 }

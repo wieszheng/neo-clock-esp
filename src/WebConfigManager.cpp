@@ -13,6 +13,7 @@
 #include "WebConfigManager.h"
 #include "DisplayManager.h"
 #include "Globals.h"
+#include "Logger.h"
 #include <ArduinoJson.h>
 #include <esp_wifi.h>
 
@@ -45,26 +46,26 @@ void WebConfigManager_::setup()
 
     generateAPName();
 
-    Serial.println("\n[WebConfig] 初始化配网管理器...");
-    Serial.printf("[WebConfig] AP 名称: %s\n", apSSID.c_str());
+    LOG_INFO("[WebConfig] 初始化配网管理器...");
+    LOG_INFO("[WebConfig] AP 名称: %s", apSSID.c_str());
 
     // 尝试加载已保存的 WiFi 凭据
     if (loadCredentials())
     {
-        Serial.printf("[WebConfig] 已保存的 WiFi: %s\n", savedSSID.c_str());
+        LOG_INFO("[WebConfig] 已保存的 WiFi: %s", savedSSID.c_str());
 
         // 尝试连接已保存的网络
-        Serial.println("[WebConfig] 尝试连接已保存的 WiFi...");
+        LOG_INFO("[WebConfig] 尝试连接已保存的 WiFi...");
         if (tryConnect(savedSSID, savedPassword))
         {
-            Serial.println("[WebConfig] ✅ WiFi 连接成功！");
+            LOG_INFO("[WebConfig] WiFi 连接成功！");
             connState = WIFI_STATE_CONNECTED;
             AP_MODE = false;
 
             // NTP 时间同步
             configTime(8 * 3600, 0, "ntp.aliyun.com", "pool.ntp.org",
                        "time.nist.gov");
-            Serial.println("[WebConfig] NTP 时间同步已配置 (UTC+8)");
+            LOG_INFO("[WebConfig] NTP 时间同步已配置 (UTC+8)");
 
             // 显示连接成功画面
             DisplayManager.setDisplayStatus(DISPLAY_CONNECTED, savedSSID,
@@ -73,12 +74,12 @@ void WebConfigManager_::setup()
         }
         else
         {
-            Serial.println("[WebConfig] ❌ 连接已保存的 WiFi 失败");
+            LOG_WARN("[WebConfig] 连接已保存的 WiFi 失败");
         }
     }
     else
     {
-        Serial.println("[WebConfig] 未找到已保存的 WiFi 凭据");
+        LOG_INFO("[WebConfig] 未找到已保存的 WiFi 凭据");
     }
 
     // 连接失败或无凭据，启动 AP 配网模式
@@ -107,8 +108,7 @@ void WebConfigManager_::tick()
             connState = WIFI_STATE_CONNECTED;
             AP_MODE = false;
             lastConnectMessage = "连接成功！IP: " + WiFi.localIP().toString();
-            Serial.printf("[WebConfig] ✅ WiFi 连接成功！IP: %s\n",
-                          WiFi.localIP().toString().c_str());
+            LOG_INFO("[WebConfig] WiFi 连接成功！IP: %s", WiFi.localIP().toString().c_str());
 
             // 保存凭据
             saveCredentials(connectingSSID, connectingPassword);
@@ -125,7 +125,7 @@ void WebConfigManager_::tick()
         {
             connState = WIFI_STATE_CONNECT_FAILED;
             lastConnectMessage = "连接超时，请检查密码是否正确";
-            Serial.println("[WebConfig] ❌ WiFi 连接超时");
+            LOG_ERROR("[WebConfig] WiFi 连接超时");
 
             // 确保 AP 模式仍然可用
             if (!portalActive)
@@ -144,7 +144,7 @@ void WebConfigManager_::tick()
     {
         connState = WIFI_STATE_DISCONNECTED;
         lastReconnectAttempt = millis();
-        Serial.println("[WebConfig] ⚠️ WiFi 断开连接");
+        LOG_WARN("[WebConfig] WiFi 断开连接");
 
         // 显示连接中动画（等待重连）
         DisplayManager.setDisplayStatus(DISPLAY_CONNECTING, "", savedSSID);
@@ -155,7 +155,7 @@ void WebConfigManager_::tick()
     {
         if (millis() - lastReconnectAttempt > WIFI_RECONNECT_INTERVAL)
         {
-            Serial.println("[WebConfig] 尝试重新连接...");
+            LOG_INFO("[WebConfig] 尝试重新连接...");
             lastReconnectAttempt = millis();
 
             if (savedSSID.length() > 0)
@@ -208,7 +208,7 @@ void WebConfigManager_::saveCredentials(const String &ssid,
 
     savedSSID = ssid;
     savedPassword = password;
-    Serial.printf("[WebConfig] WiFi 凭据已保存: %s\n", ssid.c_str());
+    LOG_INFO("[WebConfig] WiFi 凭据已保存: %s", ssid.c_str());
 }
 
 void WebConfigManager_::clearCredentials()
@@ -219,7 +219,7 @@ void WebConfigManager_::clearCredentials()
 
     savedSSID = "";
     savedPassword = "";
-    Serial.println("[WebConfig] WiFi 凭据已清除");
+    LOG_INFO("[WebConfig] WiFi 凭据已清除");
 }
 
 bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
@@ -228,7 +228,7 @@ bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
 
-    Serial.printf("[WebConfig] 正在连接 %s", ssid.c_str());
+    LOG_INFO("[WebConfig] 正在连接 %s", ssid.c_str());
 
     unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeout)
@@ -240,13 +240,11 @@ bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
 
     if (WiFi.status() == WL_CONNECTED)
     {
-        Serial.printf("[WebConfig] 已连接！IP: %s\n",
-                      WiFi.localIP().toString().c_str());
+        LOG_INFO("[WebConfig] 已连接！IP: %s", WiFi.localIP().toString().c_str());
         return true;
     }
 
-    Serial.printf("[WebConfig] 连接 %s 失败 (status=%d)\n", ssid.c_str(),
-                  WiFi.status());
+    LOG_ERROR("[WebConfig] 连接 %s 失败 (status=%d)", ssid.c_str(), WiFi.status());
     WiFi.disconnect();
     return false;
 }
@@ -257,7 +255,7 @@ bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
 
 void WebConfigManager_::startAPMode()
 {
-    Serial.println("[WebConfig] 🌐 启动 AP 配网模式...");
+    LOG_INFO("[WebConfig] 启动 AP 配网模式...");
 
     // 设置 AP + STA 模式 (保留 STA 以便后续连接)
     WiFi.mode(WIFI_AP_STA);
@@ -276,8 +274,8 @@ void WebConfigManager_::startAPMode()
 
     delay(100);
 
-    Serial.printf("[WebConfig] AP 热点: %s\n", apSSID.c_str());
-    Serial.printf("[WebConfig] AP IP: %s\n", WiFi.softAPIP().toString().c_str());
+    LOG_INFO("[WebConfig] AP 热点: %s", apSSID.c_str());
+    LOG_INFO("[WebConfig] AP IP: %s", WiFi.softAPIP().toString().c_str());
 
     connState = WIFI_STATE_AP_MODE;
     AP_MODE = true;
@@ -289,7 +287,7 @@ void WebConfigManager_::startAPMode()
     startHTTPServer();
 
     portalActive = true;
-    Serial.println("[WebConfig] ✅ 配网门户已启动");
+    LOG_INFO("[WebConfig] 配网门户已启动");
 }
 
 void WebConfigManager_::stopAPMode()
@@ -302,7 +300,7 @@ void WebConfigManager_::stopAPMode()
 
     portalActive = false;
     AP_MODE = false;
-    Serial.println("[WebConfig] AP 模式已关闭");
+    LOG_INFO("[WebConfig] AP 模式已关闭");
 }
 
 void WebConfigManager_::startDNS()
@@ -313,7 +311,7 @@ void WebConfigManager_::startDNS()
     }
     // 将所有域名解析到 AP IP（Captive Portal）
     dnsServer->start(DNS_PORT, "*", AP_IP);
-    Serial.println("[WebConfig] DNS 服务已启动 (Captive Portal)");
+    LOG_INFO("[WebConfig] DNS 服务已启动 (Captive Portal)");
 }
 
 void WebConfigManager_::stopDNS()
@@ -368,7 +366,7 @@ void WebConfigManager_::startHTTPServer()
                            { handleNotFound(); });
 
     httpServer->begin();
-    Serial.println("[WebConfig] HTTP 服务器已启动 (端口 80)");
+    LOG_INFO("[WebConfig] HTTP 服务器已启动 (端口 80)");
 }
 
 void WebConfigManager_::stopHTTPServer()
@@ -392,7 +390,7 @@ void WebConfigManager_::handleRoot()
 
 void WebConfigManager_::handleScan()
 {
-    Serial.println("[WebConfig] 扫描 WiFi 网络...");
+    LOG_INFO("[WebConfig] 扫描 WiFi 网络...");
 
     int n = WiFi.scanNetworks();
 
@@ -417,7 +415,7 @@ void WebConfigManager_::handleScan()
     httpServer->send(200, "application/json", output);
 
     WiFi.scanDelete();
-    Serial.printf("[WebConfig] 扫描完成，发现 %d 个网络\n", n);
+    LOG_INFO("[WebConfig] 扫描完成，发现 %d 个网络", n);
 }
 
 void WebConfigManager_::handleConnect()
@@ -450,7 +448,7 @@ void WebConfigManager_::handleConnect()
         return;
     }
 
-    Serial.printf("[WebConfig] 收到连接请求: SSID=%s\n", ssid.c_str());
+    LOG_INFO("[WebConfig] 收到连接请求: SSID=%s", ssid.c_str());
 
     // 保存连接信息，设置为连接中状态
     connectingSSID = ssid;
@@ -552,7 +550,7 @@ String WebConfigManager_::getIP() const
 
 void WebConfigManager_::forceAPMode()
 {
-    Serial.println("[WebConfig] 手动触发 AP 配网模式");
+    LOG_INFO("[WebConfig] 手动触发 AP 配网模式");
     WiFi.disconnect();
     startAPMode();
 }

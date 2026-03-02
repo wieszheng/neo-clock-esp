@@ -14,7 +14,6 @@
 #include "Apps.h"
 #include "DisplayManager.h"
 #include "Globals.h"
-#include "PeripheryManager.h"
 #include "Tools.h"
 #include <time.h>
 

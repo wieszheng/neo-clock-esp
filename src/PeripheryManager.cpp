@@ -14,6 +14,7 @@
 #include "PeripheryManager.h"
 #include "DisplayManager.h"
 #include "Globals.h"
+#include "Logger.h"
 #include <math.h>
 
 PeripheryManager_ &PeripheryManager_::getInstance()
@@ -29,7 +30,7 @@ PeripheryManager_ &PeripheryManager = PeripheryManager_::getInstance();
 // ==================================================================
 void PeripheryManager_::setup()
 {
-  Serial.println("[Periphery] 初始化外设管理器...");
+  LOG_INFO("[Periphery] 初始化外设管理器...");
 
   // --- DHT22 ---
   dht = new DHT(DHT_PIN, DHT_TYPE);
@@ -50,22 +51,21 @@ void PeripheryManager_::setup()
   _ldrBrightness = BRIGHTNESS; // 初始值跟随全局设置
 
   // 首次读取 DHT22
-  Serial.println("[Periphery] 测试读取DHT22传感器...");
+  LOG_INFO("[Periphery] 测试读取DHT22传感器...");
   readDHT22();
 
   if (sensorAvailable)
   {
-    Serial.printf("[Periphery] DHT22 初始化成功: %.1f°C, %.1f%%\n", temperature,
-                  humidity);
+    LOG_INFO("[Periphery] DHT22 初始化成功: %.1f°C, %.1f%%", temperature, humidity);
     INDOOR_TEMP = temperature;
     INDOOR_HUM = humidity;
   }
   else
   {
-    Serial.println("[Periphery] 警告: DHT22 传感器读取失败");
+    LOG_WARN("[Periphery] DHT22 传感器读取失败");
   }
 
-  Serial.println("[Periphery] 外设管理器初始化完成");
+  LOG_INFO("[Periphery] 外设管理器初始化完成");
 }
 
 // ==================================================================
@@ -77,12 +77,11 @@ void PeripheryManager_::setAutoBrightness(bool enable)
   {
     // 关闭时恢复全局亮度设置
     DisplayManager.setBrightness(BRIGHTNESS);
-    Serial.printf("[Periphery] LDR 自动亮度已关闭，恢复手动亮度: %d\n",
-                  BRIGHTNESS);
+    LOG_INFO("[Periphery] LDR 自动亮度已关闭，恢复手动亮度: %d", BRIGHTNESS);
   }
   else
   {
-    Serial.println("[Periphery] LDR 自动亮度已开启");
+    LOG_INFO("[Periphery] LDR 自动亮度已开启");
   }
 }
 
@@ -112,7 +111,7 @@ void PeripheryManager_::tick()
       if (_retryCount >= MAX_RETRIES)
       {
         _retryCount = 0;
-        Serial.println("[Periphery] DHT22 多次重试失败，等待下一周期");
+        LOG_WARN("[Periphery] DHT22 多次重试失败，等待下一周期");
       }
     }
   }
@@ -200,8 +199,7 @@ void PeripheryManager_::updateLDR()
     uint8_t old = _ldrBrightness;
     _ldrBrightness = brightness;
 
-    Serial.printf("[Periphery] LDR brightness change: %u -> %u (diff=%d)\n",
-                  old, _ldrBrightness, diff);
+    LOG_DEBUG("[Periphery] LDR brightness change: %u -> %u (diff=%d)", old, _ldrBrightness, diff);
 
     if (AUTO_BRIGHTNESS && !MATRIX_OFF)
     {

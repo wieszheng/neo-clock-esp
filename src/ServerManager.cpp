@@ -10,6 +10,7 @@
  *   - Liveview 实时预览数据推送
  */
 
+#include "Logger.h"
 #include "ServerManager.h"
 #include "Apps.h"
 #include "DisplayManager.h"
@@ -34,14 +35,13 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
   switch (type)
   {
   case WStype_DISCONNECTED:
-    Serial.printf("[WS] Client #%u disconnected\n", num);
+    LOG_INFO("[Server] Client #%u disconnected", num);
     break;
 
   case WStype_CONNECTED:
   {
     IPAddress ip = ws->remoteIP(num);
-    Serial.printf("[WS] Client #%u connected from %s\n", num,
-                  ip.toString().c_str());
+    LOG_INFO("[Server] Client #%u connected from %s", num, ip.toString().c_str());
     // 连接时立即发送当前状态
     broadcastStats();
     break;
@@ -76,14 +76,14 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
   }
   case WStype_TEXT:
   {
-    Serial.printf("[WS] Received: %s\n", payload);
+    LOG_DEBUG("[Server] WS Received: %s", payload);
 
     DynamicJsonDocument doc(2048);
     DeserializationError error = deserializeJson(doc, payload);
 
     if (error)
     {
-      Serial.println("[WS] Parse error");
+      LOG_ERROR("[Server] WS Parse error");
       return;
     }
 
@@ -137,8 +137,7 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
         uploadRequestId = requestId;
         uploadReceived = 0;
 
-        Serial.printf("[WS] uploadIcon start: %s total=%u\n",
-                      uploadPath.c_str(), (unsigned)uploadTotal);
+        LOG_INFO("[Server] uploadIcon start: %s total=%u", uploadPath.c_str(), (unsigned)uploadTotal);
         // start 阶段不立即 ack，等待 finish 后统一 ack
         return;
       }
@@ -160,8 +159,7 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
         bool ok = (uploadTotal == 0) ? (uploadReceived > 0)
                                      : (uploadReceived == uploadTotal);
 
-        Serial.printf("[WS] uploadIcon finish: received=%u ok=%d\n",
-                      (unsigned)uploadReceived, ok ? 1 : 0);
+        LOG_INFO("[Server] uploadIcon finish: received=%u ok=%d", (unsigned)uploadReceived, ok ? 1 : 0);
 
         uploading = false;
         uploadClient = 0;
@@ -206,7 +204,7 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
     else if (type == "getLiveview")
     {
       // 启用实时预览
-      Serial.println("[WS] Enabling liveview");
+      LOG_INFO("[Server] Enabling liveview");
       EnableLiveview = true;
     }
     else if (type == "stopLiveview")
@@ -310,7 +308,7 @@ void ServerManager_::handleWebSocketEvent(uint8_t num, WStype_t type,
       // （避免更新应用时覆盖亮度/自动轮播等设置）
 
       saveSettings();
-      Serial.println("[WS] 设置已保存");
+      LOG_INFO("[Server] 设置已保存");
 
       // ACK + 广播权威配置
       sendAck(num, requestId, "appsUpdate", true);
@@ -730,7 +728,7 @@ String ServerManager_::rgb565ToHex(uint16_t rgb565)
  */
 void ServerManager_::sendIconList(uint8_t num)
 {
-  Serial.println("[WS] Scanning LittleFS /icons directory...");
+  LOG_INFO("[Server] Scanning LittleFS /icons directory...");
 
   DynamicJsonDocument doc(4096); // 增加容量以处理更多文件名
   doc["type"] = "iconList";
@@ -739,7 +737,7 @@ void ServerManager_::sendIconList(uint8_t num)
   File root = LittleFS.open("/icons");
   if (!root || !root.isDirectory())
   {
-    Serial.println("[WS] Error: /icons directory not found");
+    LOG_ERROR("[Server] /icons directory not found");
     // 发送空列表
     String output;
     serializeJson(doc, output);
@@ -769,7 +767,7 @@ void ServerManager_::sendIconList(uint8_t num)
     file = root.openNextFile();
   }
 
-  Serial.printf("[WS] Found %d icons in LittleFS\n", count);
+  LOG_INFO("[Server] Found %d icons in LittleFS", count);
 
   String output;
   serializeJson(doc, output);
@@ -791,7 +789,7 @@ void ServerManager_::setup(WebSocketsServer *websocket)
         this->handleWebSocketEvent(num, type, payload, length);
       });
 
-  Serial.println("WebSocket服务器已启动 (端口81)");
+  LOG_INFO("[Server] WebSocket服务器已启动 (端口81)");
 }
 
 /**

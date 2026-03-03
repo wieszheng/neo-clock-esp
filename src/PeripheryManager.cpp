@@ -234,7 +234,6 @@ void PeripheryManager_::updateLDR()
  *
  * 失败由 tick() 下一周期重试
  */
-void PeripheryManager_::readDHT22()
 // ==================================================================
 void PeripheryManager_::readDHT22()
 {

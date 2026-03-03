@@ -76,6 +76,13 @@ void setup()
   LOG_INFO("[Main] 加载设置...");
   loadSettings();
 
+  // 显示启动画面 (3秒)
+  DisplayManager.clear();
+  DisplayManager.defaultTextColor();
+  DisplayManager.printText(0, 6, "NClock", true, true);
+  DisplayManager.show();
+  delay(3000);
+
   // ========================================
   // Web 配网管理器 (核心！)
   // 自动处理：已保存WiFi凭据→尝试连接→失败则启动AP配网

@@ -100,7 +100,7 @@ void WebConfigManager_::setup()
 void WebConfigManager_::tick()
 {
     // 更新 mDNS
-    MDNS.update();
+    // MDNS.update();
 
     // AP 配网模式下的处理
     if (portalActive)
@@ -427,7 +427,8 @@ void WebConfigManager_::startHTTPServer()
                            { handleNotFound(); });
 
     // SSDP 路由
-    httpServer->on("/ssdp", HTTP_GET, [this]() { handleSSDP(); });
+    httpServer->on("/ssdp", HTTP_GET, [this]()
+                   { handleSSDP(); });
 
     httpServer->begin();
     LOG_INFO("[WebConfig] HTTP 服务器已启动 (端口 80)");

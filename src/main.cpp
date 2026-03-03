@@ -72,9 +72,6 @@ void setup()
   // 初始化显示
   DisplayManager.setup();
 
-  // 显示启动画面 (3秒)
-  DisplayManager.showBootScreen();
-
   // 加载全局设置
   LOG_INFO("[Main] 加载设置...");
   loadSettings();

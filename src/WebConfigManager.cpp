@@ -92,6 +92,11 @@ void WebConfigManager_::setup()
     DisplayManager.setDisplayStatus(DISPLAY_AP_MODE, apSSID, "192.168.4.1");
 }
 
+/**
+ * @brief 主循环
+ *
+ * 处理 HTTP 请求、DNS、mDNS 更新、断线重连等
+ */
 void WebConfigManager_::tick()
 {
     // 更新 mDNS
@@ -186,6 +191,11 @@ void WebConfigManager_::tick()
 // WiFi 连接管理
 // =====================================================
 
+/**
+ * @brief 生成 AP 热点名称
+ *
+ * 使用芯片 ID 后 4 位生成唯一的 AP 名称
+ */
 void WebConfigManager_::generateAPName()
 {
     uint32_t chipId = 0;
@@ -197,6 +207,10 @@ void WebConfigManager_::generateAPName()
     apSSID.toUpperCase();
 }
 
+/**
+ * @brief 加载已保存的 WiFi 凭据
+ * @return true=加载成功, false=无保存凭据
+ */
 bool WebConfigManager_::loadCredentials()
 {
     prefs.begin("wifi-cred", true); // 只读
@@ -207,6 +221,11 @@ bool WebConfigManager_::loadCredentials()
     return savedSSID.length() > 0;
 }
 
+/**
+ * @brief 保存 WiFi 凭据到 Flash
+ * @param ssid WiFi 名称
+ * @param password WiFi 密码
+ */
 void WebConfigManager_::saveCredentials(const String &ssid,
                                         const String &password)
 {
@@ -220,6 +239,9 @@ void WebConfigManager_::saveCredentials(const String &ssid,
     LOG_INFO("[WebConfig] WiFi 凭据已保存: %s", ssid.c_str());
 }
 
+/**
+ * @brief 清除已保存的 WiFi 凭据
+ */
 void WebConfigManager_::clearCredentials()
 {
     prefs.begin("wifi-cred", false);
@@ -231,6 +253,13 @@ void WebConfigManager_::clearCredentials()
     LOG_INFO("[WebConfig] WiFi 凭据已清除");
 }
 
+/**
+ * @brief 尝试连接 WiFi
+ * @param ssid WiFi 名称
+ * @param password WiFi 密码
+ * @param timeout 连接超时 (毫秒)
+ * @return true=连接成功, false=连接失败
+ */
 bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
                                    unsigned long timeout)
 {
@@ -262,6 +291,11 @@ bool WebConfigManager_::tryConnect(const String &ssid, const String &password,
 // AP 模式管理
 // =====================================================
 
+/**
+ * @brief 启动 AP 配网模式
+ *
+ * 设置 AP + STA 模式，启动 DNS 和 HTTP 服务器
+ */
 void WebConfigManager_::startAPMode()
 {
     LOG_INFO("[WebConfig] 启动 AP 配网模式...");
@@ -299,6 +333,11 @@ void WebConfigManager_::startAPMode()
     LOG_INFO("[WebConfig] 配网门户已启动");
 }
 
+/**
+ * @brief 停止 AP 配网模式
+ *
+ * 停止 DNS 和 HTTP 服务器，切换到 STA 模式
+ */
 void WebConfigManager_::stopAPMode()
 {
     stopHTTPServer();
@@ -312,6 +351,11 @@ void WebConfigManager_::stopAPMode()
     LOG_INFO("[WebConfig] AP 模式已关闭");
 }
 
+/**
+ * @brief 启动 DNS 服务器 (Captive Portal)
+ *
+ * 将所有域名解析到 AP IP，实现自动跳转配网页面
+ */
 void WebConfigManager_::startDNS()
 {
     if (!dnsServer)
@@ -323,6 +367,9 @@ void WebConfigManager_::startDNS()
     LOG_INFO("[WebConfig] DNS 服务已启动 (Captive Portal)");
 }
 
+/**
+ * @brief 停止 DNS 服务器
+ */
 void WebConfigManager_::stopDNS()
 {
     if (dnsServer)
@@ -337,6 +384,11 @@ void WebConfigManager_::stopDNS()
 // HTTP 服务器
 // =====================================================
 
+/**
+ * @brief 启动 HTTP 服务器
+ *
+ * 注册所有 HTTP 路由处理函数
+ */
 void WebConfigManager_::startHTTPServer()
 {
     if (!httpServer)
@@ -381,6 +433,9 @@ void WebConfigManager_::startHTTPServer()
     LOG_INFO("[WebConfig] HTTP 服务器已启动 (端口 80)");
 }
 
+/**
+ * @brief 停止 HTTP 服务器
+ */
 void WebConfigManager_::stopHTTPServer()
 {
     if (httpServer)
@@ -395,11 +450,21 @@ void WebConfigManager_::stopHTTPServer()
 // HTTP 路由处理
 // =====================================================
 
+/**
+ * @brief 处理根路径请求
+ *
+ * 返回配网页面 (HTML)
+ */
 void WebConfigManager_::handleRoot()
 {
     httpServer->send_P(200, "text/html; charset=utf-8", getConfigPageHtml());
 }
 
+/**
+ * @brief 处理 WiFi 扫描请求
+ *
+ * 扫描附近的 WiFi 网络并返回 JSON 格式结果
+ */
 void WebConfigManager_::handleScan()
 {
     LOG_INFO("[WebConfig] 扫描 WiFi 网络...");
@@ -430,6 +495,11 @@ void WebConfigManager_::handleScan()
     LOG_INFO("[WebConfig] 扫描完成，发现 %d 个网络", n);
 }
 
+/**
+ * @brief 处理 WiFi 连接请求
+ *
+ * 解析 JSON 请求体中的 SSID 和密码，开始异步连接
+ */
 void WebConfigManager_::handleConnect()
 {
     if (!httpServer->hasArg("plain"))
@@ -481,6 +551,11 @@ void WebConfigManager_::handleConnect()
     WiFi.begin(ssid.c_str(), password.c_str());
 }
 
+/**
+ * @brief 处理 WiFi 状态查询请求
+ *
+ * 返回当前 WiFi 连接状态、IP 地址、设备信息等
+ */
 void WebConfigManager_::handleStatus()
 {
     DynamicJsonDocument doc(512);
@@ -528,6 +603,11 @@ void WebConfigManager_::handleStatus()
     httpServer->send(200, "application/json", output);
 }
 
+/**
+ * @brief 处理设备重启请求
+ *
+ * 延迟 1 秒后重启设备
+ */
 void WebConfigManager_::handleRestart()
 {
     httpServer->send(200, "application/json",
@@ -536,6 +616,11 @@ void WebConfigManager_::handleRestart()
     ESP.restart();
 }
 
+/**
+ * @brief 处理未知路径
+ *
+ * 重定向到配网页面 (Captive Portal)
+ */
 void WebConfigManager_::handleNotFound()
 {
     // Captive Portal: 将所有未知请求重定向到配网页面
@@ -547,6 +632,10 @@ void WebConfigManager_::handleNotFound()
 // 公共接口
 // =====================================================
 
+/**
+ * @brief 获取当前 IP 地址
+ * @return IP 地址字符串
+ */
 String WebConfigManager_::getIP() const
 {
     if (connState == WIFI_STATE_CONNECTED)
@@ -560,6 +649,11 @@ String WebConfigManager_::getIP() const
     return "0.0.0.0";
 }
 
+/**
+ * @brief 手动触发 AP 配网模式
+ *
+ * 强制断开当前连接并启动 AP 模式
+ */
 void WebConfigManager_::forceAPMode()
 {
     LOG_INFO("[WebConfig] 手动触发 AP 配网模式");
@@ -1303,6 +1397,11 @@ const char *WebConfigManager_::getConfigPageHtml()
 // mDNS / SSDP 设备发现
 // =====================================================
 
+/**
+ * @brief 启动 mDNS 服务
+ *
+ * 注册 HTTP 服务和设备信息到 mDNS
+ */
 void WebConfigManager_::startMDNS()
 {
     // 停止旧的 mDNS 服务
@@ -1325,11 +1424,19 @@ void WebConfigManager_::startMDNS()
     }
 }
 
+/**
+ * @brief 停止 mDNS 服务
+ */
 void WebConfigManager_::stopMDNS()
 {
     MDNS.end();
 }
 
+/**
+ * @brief 处理 SSDP 请求
+ *
+ * 返回设备描述信息 (XML 格式)
+ */
 void WebConfigManager_::handleSSDP()
 {
     if (!httpServer)
@@ -1345,6 +1452,10 @@ void WebConfigManager_::handleSSDP()
     httpServer->send(200, "application/xml", resp);
 }
 
+/**
+ * @brief 生成 SSDP 响应消息
+ * @return SSDP 设备描述 XML 字符串
+ */
 String WebConfigManager_::getSSDPResponse()
 {
     String resp = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";

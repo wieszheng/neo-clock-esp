@@ -219,9 +219,6 @@ void DisplayManager_::tick()
     matrix->clear();
     switch (_state.status)
     {
-    case DISPLAY_BOOT:
-      _renderBoot();
-      break;
     case DISPLAY_AP_MODE:
       _renderAPMode();
       break;
@@ -296,14 +293,14 @@ void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
   }
 }
 
+// Gamma 校正系数 (2.0 是 LED 常用的典型值)
+#define GAMMA_VALUE 2.0
+
 void DisplayManager_::gammaCorrection()
 {
-  if (1 > 0)
+  for (int i = 0; i < NUM_LEDS; i++)
   {
-    for (int i = 0; i < 256; i++)
-    {
-      leds[i] = applyGamma_video(leds[i], 1);
-    }
+    leds[i] = applyGamma_video(leds[i], GAMMA_VALUE);
   }
 }
 
@@ -382,13 +379,6 @@ void DisplayManager_::setDisplayStatus(DisplayStatus status,
   _state.lastScrollTime = millis();
 
   LOG_INFO("[Display] 状态切换: %d, L1='%s', L2='%s'", status, line1.c_str(), line2.c_str());
-}
-
-void DisplayManager_::showBootScreen()
-{
-  _state.status = DISPLAY_BOOT;
-  _state.startTime = millis();
-  LOG_INFO("[Display] 显示启动画面");
 }
 
 // 辅助: RGB565 转换宏
@@ -549,26 +539,4 @@ void DisplayManager_::_renderConnectFailed()
   matrix->setTextColor(xColor);
   matrix->setCursor(10, 6);
   matrix->print("FAIL");
-}
-
-void DisplayManager_::_renderBoot()
-{
-  unsigned long elapsed = millis() - _state.startTime;
-
-  // 3秒后自动切换到正常模式
-  if (elapsed > 3000)
-  {
-    _state.status = DISPLAY_NORMAL;
-    return;
-  }
-
-  // 呼吸效果
-  float breath = (sin(elapsed * 0.005) + 1.0) * 0.5;
-  uint8_t intensity = 80 + (uint8_t)(breath * 175);
-  uint16_t textColor = RGB565(intensity, intensity, intensity);
-
-  // 显示 NeoClock 文字
-  matrix->setTextColor(textColor);
-  matrix->setCursor(0, 1);
-  matrix->print("NeoClock");
 }

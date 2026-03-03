@@ -27,7 +27,14 @@ std::vector<AppData> Apps;
 OverlayCallback overlays[] = {AlarmOverlay, TimerOverlay, NotifyOverlay,
                               SpectrumOverlay};
 
-// 设置应用文字颜色
+// ==================================================================
+// 辅助函数
+// ==================================================================
+
+/**
+ * @brief 应用应用文字颜色
+ * @param colorHex HEX 格式颜色字符串 (如 "#FFFFFF")
+ */
 static inline void applyAppColor(const String &colorHex)
 {
   if (colorHex.length() > 0)
@@ -40,7 +47,19 @@ static inline void applyAppColor(const String &colorHex)
   }
 }
 
-// 颜色在循环外预转换
+/**
+ * @brief 绘制星期指示条
+ * @param matrix 矩阵驱动指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param barStartX 条形起始 X 坐标
+ * @param barWidth 单个条形宽度
+ * @param timeInfo 时间信息指针
+ * @param activeColorHex 激活颜色 (HEX 格式)
+ * @param inactiveColorHex 未激活颜色 (HEX 格式)
+ *
+ * 在矩阵底部绘制 7 条短线表示星期几，当天对应高亮
+ */
 static void drawWeekdayBar(FastLED_NeoMatrix *matrix, int16_t x, int16_t y,
                            int16_t barStartX, int8_t barWidth,
                            const struct tm *timeInfo,
@@ -68,6 +87,17 @@ static void drawWeekdayBar(FastLED_NeoMatrix *matrix, int16_t x, int16_t y,
 // ==================================================================
 // 时间应用
 // ==================================================================
+
+/**
+ * @brief 时间应用绘制函数
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param player 动画播放器
+ *
+ * 显示当前时间，支持自定义格式、颜色和星期指示条
+ */
 void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -129,6 +159,17 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // ==================================================================
 // 日期应用
 // ==================================================================
+
+/**
+ * @brief 日期应用绘制函数
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param player 动画播放器
+ *
+ * 显示当前日期，支持自定义格式、颜色和星期指示条
+ */
 void DateApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -174,6 +215,17 @@ void DateApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // ==================================================================
 // 温度应用
 // ==================================================================
+
+/**
+ * @brief 温度应用绘制函数
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param player 动画播放器
+ *
+ * 显示室内温度 (来自 DHT22 传感器)，带温度动画图标
+ */
 void TempApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -196,6 +248,17 @@ void TempApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // ==================================================================
 // 湿度应用
 // ==================================================================
+
+/**
+ * @brief 湿度应用绘制函数
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param player 动画播放器
+ *
+ * 显示室内湿度 (来自 DHT22 传感器)，带蓝色火焰动画图标
+ */
 void HumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
             int16_t y, FastFramePlayer *player)
 {
@@ -213,6 +276,17 @@ void HumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // ==================================================================
 // 天气应用
 // ==================================================================
+
+/**
+ * @brief 天气应用绘制函数
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param player 动画播放器
+ *
+ * 显示室外天气 (来自 Weather API)，根据天气类型显示不同图标
+ */
 void WeatherApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                 int16_t x, int16_t y, FastFramePlayer *player)
 {
@@ -255,6 +329,17 @@ void WeatherApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
 // ==================================================================
 // 风速应用
 // ==================================================================
+
+/**
+ * @brief 风速应用绘制函数
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param x X 偏移量
+ * @param y Y 偏移量
+ * @param player 动画播放器
+ *
+ * 显示风速数据 (来自 Weather API)
+ */
 void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -278,22 +363,56 @@ void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // 覆盖层实现
 // ==================================================================
 
+/**
+ * @brief 频谱覆盖层
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param player 动画播放器
+ *
+ * 在所有应用上方显示音频频谱 (预留扩展)
+ */
 void SpectrumOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                      FastFramePlayer *player)
 {
   // 暂时为空，如果需要在所有界面显示频谱条可在此实现
 }
 
+/**
+ * @brief 闹钟覆盖层
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param player 动画播放器
+ *
+ * 闹钟触发时在所有应用上方显示提醒 (预留扩展)
+ */
 void AlarmOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                   FastFramePlayer *player)
 {
   // 桩代码
 }
+
+/**
+ * @brief 定时器覆盖层
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param player 动画播放器
+ *
+ * 定时器触发时在所有应用上方显示倒计时 (预留扩展)
+ */
 void TimerOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                   FastFramePlayer *player)
 {
   // 桩代码
 }
+
+/**
+ * @brief 通知覆盖层
+ * @param matrix 矩阵驱动指针
+ * @param state UI 状态指针
+ * @param player 动画播放器
+ *
+ * 显示系统通知消息 (预留扩展)
+ */
 void NotifyOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                    FastFramePlayer *player)
 {

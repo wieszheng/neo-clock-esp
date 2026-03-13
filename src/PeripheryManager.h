@@ -14,6 +14,25 @@
 
 #include <Arduino.h>
 #include <DHT.h>
+#include <EasyButton.h>
+
+// ==================================================================
+// 按钮引脚定义
+// ==================================================================
+
+#define BUTTON_LEFT_PIN   33
+#define BUTTON_RIGHT_PIN  25
+#define BUTTON_BACK_PIN   26
+#define BUTTON_OK_PIN     27
+
+// ==================================================================
+// 全局按钮实例
+// ==================================================================
+
+extern EasyButton button_left;
+extern EasyButton button_right;
+extern EasyButton button_back;
+extern EasyButton button_ok;
 
 // ==================================================================
 // 外设管理器类

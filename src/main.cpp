@@ -19,6 +19,7 @@
 #include "WeatherManager.h"
 #include "WebConfigManager.h"
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <WebSocketsServer.h>
 #include <WiFi.h>
 
@@ -128,6 +129,22 @@ void setup()
   {
     LOG_INFO("[Main] WiFi: 已连接 (%s)", WiFi.SSID().c_str());
     LOG_INFO("[Main] IP 地址: %s", WiFi.localIP().toString().c_str());
+
+    // 初始化 OTA 升级
+    ArduinoOTA.onStart([]() {
+      LOG_INFO("[OTA] 开始升级...");
+    });
+    ArduinoOTA.onEnd([]() {
+      LOG_INFO("[OTA] 升级完成，重启中...");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+      LOG_INFO("[OTA] 进度: %u%%", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+      LOG_ERROR("[OTA] 错误: %d", error);
+    });
+    ArduinoOTA.begin();
+    LOG_INFO("[Main] OTA 升级已启用");
   }
   else
   {
@@ -177,6 +194,8 @@ void loop()
   if (WebConfigManager.isConnected())
   {
     ServerManager.tick();
+    // OTA 升级处理
+    ArduinoOTA.handle();
   }
 
   // 4. 发送采样帧（在 ws->loop() 之后，TCP 缓冲区最宽裕，阻塞概率最低）

@@ -20,10 +20,10 @@
 // 按钮引脚定义
 // ==================================================================
 
-#define BUTTON_LEFT_PIN   33
-#define BUTTON_RIGHT_PIN  25
-#define BUTTON_BACK_PIN   26
-#define BUTTON_OK_PIN     27
+#define BUTTON_LEFT_PIN 22
+#define BUTTON_RIGHT_PIN 23
+#define BUTTON_BACK_PIN 19
+#define BUTTON_OK_PIN 18
 
 // ==================================================================
 // 全局按钮实例

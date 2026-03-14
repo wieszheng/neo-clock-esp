@@ -19,11 +19,11 @@
 // 全局按钮实例
 // ==================================================================
 
-// TTP223 触摸按钮：输出 HIGH 表示按下，需要启用内部下拉电阻
-EasyButton button_left(BUTTON_LEFT_PIN, true, true);
-EasyButton button_right(BUTTON_RIGHT_PIN, true, true);
-EasyButton button_back(BUTTON_BACK_PIN, true, true);
-EasyButton button_ok(BUTTON_OK_PIN, true, true);
+// TTP223 触摸按钮：输出 HIGH 表示按下，不需要内部上拉，高电平触发
+EasyButton button_left(BUTTON_LEFT_PIN, 35, false, false);
+EasyButton button_right(BUTTON_RIGHT_PIN, 35, false, false);
+EasyButton button_back(BUTTON_BACK_PIN, 35, false, false);
+EasyButton button_ok(BUTTON_OK_PIN, 35, false, false);
 
 // ==================================================================
 // 按钮回调函数

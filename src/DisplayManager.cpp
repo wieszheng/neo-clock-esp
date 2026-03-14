@@ -381,9 +381,6 @@ void DisplayManager_::setDisplayStatus(DisplayStatus status,
   LOG_INFO("[Display] 状态切换: %d, L1='%s', L2='%s'", status, line1.c_str(), line2.c_str());
 }
 
-// 辅助: RGB565 转换宏
-#define RGB565(r, g, b) (((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
-
 void DisplayManager_::_drawWiFiIcon(int16_t x, int16_t y, uint16_t color)
 {
   for (int i = 1; i <= 5; i++)
@@ -419,12 +416,8 @@ void DisplayManager_::_drawScrollText(int16_t y, const String &text,
 
 void DisplayManager_::_renderAPMode()
 {
-  unsigned long now = millis();
-  float breath = (sin((now - _state.startTime) * 0.003) + 1.0) * 0.5;
-  uint8_t intensity = 80 + (uint8_t)(breath * 175);
-  uint16_t iconColor = RGB565((uint8_t)(0x63 * intensity / 255),
-                              (uint8_t)(0x66 * intensity / 255),
-                              (uint8_t)(0xF1 * intensity / 255));
+  // 固定颜色 #6366F1
+  uint16_t iconColor = 0x633E;
 
   // 1. 绘制滚动文字 (背景层)
   if (millis() - _state.lastScrollTime >= 50)
@@ -455,9 +448,10 @@ void DisplayManager_::_renderConnecting()
     _state.animFrame = (_state.animFrame + 1) % MATRIX_WIDTH;
   }
 
-  uint16_t dotColor = RGB565(0x63, 0x66, 0xF1);
-  uint16_t trailColor = RGB565(0x30, 0x30, 0x78);
-  uint16_t dimTrail = RGB565(0x18, 0x18, 0x3C);
+  // #6366F1, #303078, #18183C
+  uint16_t dotColor = 0x633E;
+  uint16_t trailColor = 0x318F;
+  uint16_t dimTrail = 0x18C7;
 
   for (int i = 0; i < 3; i++)
   {
@@ -492,9 +486,8 @@ void DisplayManager_::_renderConnected()
     return;
   }
 
-  float breath = (sin(elapsed * 0.005) + 1.0) * 0.5;
-  uint8_t gBright = 100 + (uint8_t)(breath * 80);
-  uint16_t checkColor = RGB565(0x10, gBright, 0x30);
+  // 固定颜色 #10B430
+  uint16_t checkColor = 0x1586;
 
   // 1. 绘制滚动文字 (背景层)
   if (millis() - _state.lastScrollTime >= 50)
@@ -530,7 +523,8 @@ void DisplayManager_::_renderConnectFailed()
   if ((elapsed / 300) % 2 != 0)
     return;
 
-  uint16_t xColor = RGB565(0xEF, 0x44, 0x44);
+  // #EF4444
+  uint16_t xColor = 0xEA28;
   for (int i = 0; i < 6; i++)
   {
     matrix->drawPixel(1 + i, 1 + i, xColor);

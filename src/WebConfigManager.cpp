@@ -674,212 +674,248 @@ const char *WebConfigManager_::getConfigPageHtml()
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoClock 配网</title>
+    <title>NeoClock</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+
         :root {
-            --bg: #f0f2f5;
-            --card: #ffffff;
-            --primary: #6366f1;
-            --primary-light: #818cf8;
-            --primary-dark: #4f46e5;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --text: #1e293b;
-            --text-secondary: #64748b;
-            --border: #e2e8f0;
-            --shadow: 0 4px 24px rgba(0,0,0,0.08);
-            --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+            /* NeoClock 品牌色 */
+            --coral: #FF6B6B;
+            --coral-light: #FFA07A;
+            --peach: #FFB4A2;
+            --mint: #4ECDC4;
+            --lavender: #A8DADC;
+            --cream: #FFF8F0;
+            /* 像素色 */
+            --pixel-blue: #00D4FF;
+            --pixel-green: #00FF88;
+            --pixel-purple: #B388FF;
+            --pixel-pink: #FF6EC7;
+            /* 中性色 */
+            --charcoal: #2D3436;
+            --warm-gray: #636E72;
+            --light-gray: #B2BEC3;
+            --off-white: #FAFAFA;
+            /* 功能色 */
+            --success: #4ECDC4;
+            --warning: #FFA07A;
+            --danger: #FF6B6B;
+            /* UI */
+            --bg: #FFF8F0;
+            --card: #FFFFFF;
+            --text: #2D3436;
+            --text-secondary: #636E72;
+            --border: rgba(255, 107, 107, 0.15);
+            --shadow: 0 4px 20px rgba(255, 107, 107, 0.12);
+            --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
             --radius: 16px;
-            --radius-sm: 10px;
+            --radius-sm: 12px;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #FFF8F0 0%, #FFE5D9 100%);
+            background-attachment: fixed;
             color: var(--text);
             min-height: 100vh;
             line-height: 1.6;
         }
-        
+
+        /* 像素格子背景 */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image:
+                    linear-gradient(rgba(255, 107, 107, 0.03) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 107, 107, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
         .container {
+            position: relative;
+            z-index: 1;
             max-width: 420px;
             margin: 0 auto;
-            padding: 20px 16px;
+            padding: 16px 12px;
             min-height: 100vh;
         }
-        
+
         /* ===== Header ===== */
         .header {
             text-align: center;
-            padding: 32px 0 24px;
+            padding: 16px 0 12px;
         }
-        
-        .header .logo {
-            width: 64px; height: 64px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            border-radius: 20px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 16px;
-            box-shadow: 0 8px 24px rgba(99,102,241,0.3);
-            animation: float 3s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-            0%,100% { transform: translateY(0); }
-            50% { transform: translateY(-6px); }
-        }
-        
-        .header .logo svg { width: 36px; height: 36px; fill: white; }
-        
+
         .header h1 {
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--text);
+            font-size: 20px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #FF6B6B 0%, #FFA07A 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             letter-spacing: -0.02em;
         }
-        
+
         .header p {
-            font-size: 14px;
+            font-size: 13px;
             color: var(--text-secondary);
-            margin-top: 4px;
+            margin-top: 2px;
         }
-        
+
         /* ===== Status Badge ===== */
         .status-bar {
             background: var(--card);
             border-radius: var(--radius-sm);
-            padding: 12px 16px;
+            padding: 10px 14px;
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             box-shadow: var(--shadow);
             transition: all 0.3s ease;
+            border: 1px solid var(--border);
         }
-        
+
         .status-dot {
             width: 10px; height: 10px;
             border-radius: 50%;
             background: var(--warning);
             flex-shrink: 0;
             animation: pulse-dot 2s infinite;
+            box-shadow: 0 0 10px rgba(255, 160, 122, 0.5);
         }
-        
-        .status-dot.connected { background: var(--success); animation: none; }
-        .status-dot.connecting { background: var(--primary); }
-        .status-dot.failed { background: var(--danger); animation: none; }
-        
+
+        .status-dot.connected { background: var(--mint); animation: none; box-shadow: 0 0 10px rgba(78, 205, 196, 0.5); }
+        .status-dot.connecting { background: var(--pixel-blue); box-shadow: 0 0 10px rgba(0, 212, 255, 0.5); }
+        .status-dot.failed { background: var(--danger); animation: none; box-shadow: 0 0 10px rgba(255, 107, 107, 0.5); }
+
         @keyframes pulse-dot {
             0%,100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(0.85); }
+            50% { opacity: 0.6; transform: scale(0.85); }
         }
-        
+
         .status-text {
-            font-size: 13px;
+            font-size: 12px;
             color: var(--text-secondary);
             flex: 1;
         }
-        
+
         .status-text strong {
             color: var(--text);
-            font-weight: 600;
+            font-weight: 700;
         }
-        
+
         /* ===== Cards ===== */
         .card {
             background: var(--card);
             border-radius: var(--radius);
-            padding: 20px;
-            margin-bottom: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
             box-shadow: var(--shadow);
+            border: 1px solid var(--border);
         }
-        
+
         .card-title {
-            font-size: 15px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 700;
             color: var(--text);
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        
+
         .card-title .icon {
             width: 32px; height: 32px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            background: linear-gradient(135deg, var(--coral), var(--coral-light));
             border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.25);
         }
-        
+
+        .card-title .icon.mint {
+            background: linear-gradient(135deg, var(--mint), #7DD3C8);
+            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.25);
+        }
+
+        .card-title .icon.pixel {
+            background: linear-gradient(135deg, var(--pixel-blue), var(--pixel-purple));
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.25);
+        }
+
         .card-title .icon svg { width: 18px; height: 18px; fill: white; }
-        
+
         /* ===== WiFi List ===== */
         .wifi-list {
             list-style: none;
-            max-height: 280px;
+            max-height: 240px;
             overflow-y: auto;
             scrollbar-width: thin;
+            scrollbar-color: var(--peach) transparent;
         }
-        
+
         .wifi-list::-webkit-scrollbar { width: 4px; }
-        .wifi-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        
+        .wifi-list::-webkit-scrollbar-thumb { background: var(--peach); border-radius: 4px; }
+
         .wifi-item {
             display: flex;
             align-items: center;
-            padding: 12px;
-            border-radius: var(--radius-sm);
+            padding: 10px;
+            border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s ease;
-            gap: 12px;
-            border: 1px solid transparent;
+            gap: 10px;
+            border: 2px solid transparent;
         }
-        
+
         .wifi-item:hover {
-            background: #f8fafc;
-            border-color: var(--border);
+            background: rgba(255, 107, 107, 0.05);
+            border-color: var(--peach);
         }
-        
+
         .wifi-item.selected {
-            background: #eef2ff;
-            border-color: var(--primary-light);
+            background: rgba(255, 107, 107, 0.08);
+            border-color: var(--coral);
         }
-        
+
         .wifi-icon {
             width: 36px; height: 36px;
-            background: #f1f5f9;
+            background: linear-gradient(135deg, #FFF8F0, #FFE5D9);
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
         }
-        
-        .wifi-icon svg { width: 20px; height: 20px; fill: var(--text-secondary); }
-        .wifi-item.selected .wifi-icon { background: var(--primary); }
+
+        .wifi-icon svg { width: 20px; height: 20px; fill: var(--coral); }
+        .wifi-item.selected .wifi-icon { background: linear-gradient(135deg, var(--coral), var(--coral-light)); }
         .wifi-item.selected .wifi-icon svg { fill: white; }
-        
+
         .wifi-info { flex: 1; min-width: 0; }
         .wifi-name {
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .wifi-detail {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--text-secondary);
-            margin-top: 2px;
+            margin-top: 1px;
         }
-        
+
+        .wifi-detail .detail-icon {
+            vertical-align: middle;
+            margin-right: 2px;
+        }
+
         .wifi-signal {
             display: flex;
             align-items: flex-end;
@@ -887,57 +923,58 @@ const char *WebConfigManager_::getConfigPageHtml()
             height: 16px;
             flex-shrink: 0;
         }
-        
+
         .wifi-signal .bar {
             width: 3px;
-            background: #cbd5e1;
-            border-radius: 1px;
+            background: var(--light-gray);
+            border-radius: 2px;
             transition: all 0.3s ease;
         }
-        
-        .wifi-signal .bar.active { background: var(--success); }
+
+        .wifi-signal .bar.active { background: var(--mint); }
         .wifi-signal .bar:nth-child(1) { height: 4px; }
         .wifi-signal .bar:nth-child(2) { height: 7px; }
-        .wifi-signal .bar:nth-child(3) { height: 11px; }
+        .wifi-signal .bar:nth-child(3) { height: 10px; }
         .wifi-signal .bar:nth-child(4) { height: 16px; }
-        
+
         /* ===== Form ===== */
         .form-group {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
-        
+
         .form-label {
-            font-size: 13px;
-            font-weight: 500;
+            font-size: 11px;
+            font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 6px;
+            margin-bottom: 5px;
             display: block;
         }
-        
+
         .form-input {
             width: 100%;
-            padding: 12px 14px;
+            padding: 10px 12px;
             border: 1.5px solid var(--border);
-            border-radius: var(--radius-sm);
-            font-size: 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
             color: var(--text);
-            background: #fafbfc;
+            background: var(--off-white);
             outline: none;
             transition: all 0.2s ease;
         }
-        
+
         .form-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+            border-color: var(--coral);
+            box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.1);
             background: white;
         }
-        
-        .form-input::placeholder { color: #94a3b8; }
-        
+
+        .form-input::placeholder { color: var(--light-gray); }
+
         .password-wrap {
             position: relative;
         }
-        
+
         .password-toggle {
             position: absolute;
             right: 12px;
@@ -948,290 +985,340 @@ const char *WebConfigManager_::getConfigPageHtml()
             color: var(--text-secondary);
             cursor: pointer;
             padding: 4px;
+            transition: color 0.2s;
         }
-        
+
+        .password-toggle:hover { color: var(--coral); }
+
         /* ===== Buttons ===== */
         .btn {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             border: none;
-            border-radius: var(--radius-sm);
-            font-size: 15px;
-            font-weight: 600;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
-        
+
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            background: linear-gradient(135deg, var(--coral), var(--coral-light));
             color: white;
-            box-shadow: 0 2px 14px rgba(99,102,241,0.35);
+            box-shadow: 0 3px 10px rgba(255, 107, 107, 0.35);
         }
-        
+
         .btn-primary:hover {
             transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
         }
-        
+
         .btn-primary:active {
             transform: translateY(0);
         }
-        
+
         .btn-primary:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .btn-outline {
             background: transparent;
-            color: var(--primary);
-            border: 1.5px solid var(--border);
+            color: var(--coral);
+            border: 2px solid var(--coral);
         }
-        
+
         .btn-outline:hover {
-            background: #f8fafc;
-            border-color: var(--primary-light);
+            background: rgba(255, 107, 107, 0.08);
         }
-        
+
+        .btn-mint {
+            background: linear-gradient(135deg, var(--mint), #7DD3C8);
+            color: white;
+            box-shadow: 0 3px 10px rgba(78, 205, 196, 0.35);
+        }
+
+        .btn-mint:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.4);
+        }
+
         .btn-sm {
-            padding: 4px 16px;
-            font-size: 13px;
+            padding: 8px 18px;
+            font-size: 12px;
             width: auto;
         }
-        
+
         /* ===== Loading Spinner ===== */
         .spinner {
-            width: 18px; height: 18px;
-            border: 2.5px solid rgba(255,255,255,0.3);
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
             border-top-color: white;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             display: none;
         }
-        
+
         .btn.loading .spinner { display: block; }
         .btn.loading .btn-text { display: none; }
-        
+
         @keyframes spin { to { transform: rotate(360deg); } }
-        
+
         /* ===== Toast ===== */
         .toast {
             position: fixed;
-            bottom: 24px;
+            bottom: 16px;
             left: 50%;
             transform: translateX(-50%) translateY(100px);
-            background: var(--text);
+            background: var(--charcoal);
             color: white;
-            padding: 12px 24px;
-            border-radius: var(--radius-sm);
-            font-size: 14px;
+            padding: 10px 20px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
             box-shadow: var(--shadow-lg);
             transition: transform 0.3s ease;
             z-index: 1000;
-            max-width: 90%;
+            max-width: 85%;
             text-align: center;
         }
-        
+
         .toast.show { transform: translateX(-50%) translateY(0); }
-        .toast.success { background: var(--success); }
-        .toast.error { background: var(--danger); }
-        
+        .toast.success { background: linear-gradient(135deg, var(--mint), #7DD3C8); }
+        .toast.error { background: linear-gradient(135deg, var(--coral), var(--coral-light)); }
+
         /* ===== Scan placeholder ===== */
         .scan-placeholder {
             text-align: center;
-            padding: 32px 16px;
+            padding: 32px 12px;
             color: var(--text-secondary);
         }
-        
-        .scan-placeholder svg { width: 48px; height: 48px; fill: #cbd5e1; margin-bottom: 12px; }
-        .scan-placeholder p { font-size: 14px; }
-        
+
+        .scan-placeholder svg { width: 48px; height: 48px; fill: var(--peach); margin-bottom: 12px; }
+        .scan-placeholder p { font-size: 13px; }
+
         /* ===== Info Section ===== */
         .info-row {
             display: flex;
             justify-content: space-between;
             padding: 8px 0;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 13px;
+            border-bottom: 1px solid rgba(255, 107, 107, 0.1);
+            font-size: 12px;
         }
         .info-row:last-child { border-bottom: none; }
         .info-label { color: var(--text-secondary); }
-        .info-value { color: var(--text); font-weight: 500; font-family: monospace; }
-        
+        .info-value {
+            color: var(--text);
+            font-weight: 600;
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 11px;
+        }
+
         /* ===== Footer ===== */
         .footer {
             text-align: center;
-            padding: 24px 0;
-            font-size: 12px;
-            color: #94a3b8;
+            padding: 16px 0;
+            font-size: 11px;
+            color: var(--light-gray);
         }
-        
+
+        .footer span {
+            color: var(--coral);
+            font-weight: 600;
+        }
+
         .btn-group {
             display: flex;
             gap: 10px;
-            margin-top: 14px;
+            margin-top: 12px;
         }
         .btn-group .btn { flex: 1; }
+
+        /* 像素风格装饰 */
+        @keyframes float {
+            0%,100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .pixel-decoration {
+            position: fixed;
+            width: 8px;
+            height: 8px;
+            background: var(--coral);
+            opacity: 0.15;
+            border-radius: 2px;
+        }
+        .pixel-decoration:nth-child(1) { top: 15%; left: 10%; animation: float 4s ease-in-out infinite; }
+        .pixel-decoration:nth-child(2) { top: 25%; right: 15%; animation: float 5s ease-in-out infinite 0.5s; background: var(--mint); }
+        .pixel-decoration:nth-child(3) { bottom: 20%; left: 8%; animation: float 4.5s ease-in-out infinite 1s; background: var(--pixel-blue); }
+        .pixel-decoration:nth-child(4) { bottom: 30%; right: 12%; animation: float 3.5s ease-in-out infinite 0.3s; background: var(--pixel-purple); }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <div class="logo">
-                <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/></svg>
-            </div>
-            <h1>NeoClock 网络配置</h1>
-            <p>连接 WiFi 以启用完整功能</p>
+<!-- 像素装饰 -->
+<div class="pixel-decoration"></div>
+<div class="pixel-decoration"></div>
+<div class="pixel-decoration"></div>
+<div class="pixel-decoration"></div>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>NeoClock</h1>
+        <p>连接 WiFi 以启用完整功能</p>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" id="statusBar">
+        <div class="status-dot" id="statusDot"></div>
+        <div class="status-text" id="statusText">
+            <strong>配网模式</strong> · 等待配置
         </div>
-        
-        <!-- Status Bar -->
-        <div class="status-bar" id="statusBar">
-            <div class="status-dot" id="statusDot"></div>
-            <div class="status-text" id="statusText">
-                <strong>配网模式</strong> · 等待配置
+    </div>
+
+    <!-- WiFi List Card -->
+    <div class="card">
+        <div class="card-title">
+            <div class="icon">
+                <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
             </div>
-        </div>
-        
-        <!-- WiFi List Card -->
-        <div class="card">
-            <div class="card-title">
-                <div class="icon">
-                    <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
-                </div>
-                可用网络
-                <button class="btn btn-outline btn-sm" onclick="scanWiFi()" id="scanBtn" style="margin-left:auto">
-                    <span class="btn-text">扫描</span>
-                    <div class="spinner"></div>
-                </button>
-            </div>
-            
-            <div id="wifiListArea">
-                <div class="scan-placeholder" id="scanPlaceholder">
-                    <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
-                    <p>点击"扫描"搜索附近的 WiFi 网络</p>
-                </div>
-                <ul class="wifi-list" id="wifiList" style="display:none"></ul>
-            </div>
-        </div>
-        
-        <!-- Connect Form Card -->
-        <div class="card" id="connectCard">
-            <div class="card-title">
-                <div class="icon">
-                    <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
-                </div>
-                连接网络
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">WiFi 名称 (SSID)</label>
-                <input type="text" class="form-input" id="ssidInput" placeholder="选择或输入 WiFi 名称" autocomplete="off">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">密码</label>
-                <div class="password-wrap">
-                    <input type="password" class="form-input" id="passInput" placeholder="输入 WiFi 密码" autocomplete="off">
-                    <button class="password-toggle" onclick="togglePassword()" type="button">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="eyeIcon">
-                            <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            
-            <button class="btn btn-primary" id="connectBtn" onclick="connectWiFi()">
-                <span class="btn-text">连接</span>
+            可用网络
+            <button class="btn btn-outline btn-sm" onclick="scanWiFi()" id="scanBtn" style="margin-left:auto">
+                <span class="btn-text">扫描</span>
                 <div class="spinner"></div>
             </button>
         </div>
-        
-        <!-- Device Info Card -->
-        <div class="card">
-            <div class="card-title">
-                <div class="icon" style="background: linear-gradient(135deg, #10b981, #34d399);">
-                    <svg viewBox="0 0 24 24"><path d="M13 9h-2v2H9v2h2v2h2v-2h2v-2h-2V9zm1-7.06c1.09.53 2 1.84 2 3.06 0 1.68-1.36 3.15-2.99 3.15-1.99 0-3.51-1.82-2.99-3.89.33-1.28 1.51-2.18 2.82-2.3l1.16-.02zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
-                </div>
-                设备信息
-            </div>
 
-            <div class="info-row"><span class="info-label">配网地址</span><span class="info-value">192.168.4.1</span></div>
-            <div class="info-row"><span class="info-label">固件版本</span><span class="info-value">v1.0.0</span></div>
-            <div class="info-row"><span class="info-label">芯片型号</span><span class="info-value">ESP32</span></div>
-            <div class="info-row"><span class="info-label">可用内存</span><span class="info-value" id="infoHeap">-</span></div>
-            
-            <div class="btn-group">
-                <button class="btn btn-outline btn-sm" onclick="restartDevice()">重启设备</button>
+        <div id="wifiListArea">
+            <div class="scan-placeholder" id="scanPlaceholder">
+                <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+                <p>点击"扫描"搜索附近的 WiFi 网络</p>
             </div>
-        </div>
-        
-        <div class="footer">
-            NeoClock · 像素时钟 · ESP32
+            <ul class="wifi-list" id="wifiList" style="display:none"></ul>
         </div>
     </div>
-    
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
-    
-    <script>
-        let selectedSSID = '';
-        let statusTimer = null;
-        
-        // ===== WiFi 扫描 =====
-        async function scanWiFi() {
-            const btn = document.getElementById('scanBtn');
-            btn.classList.add('loading');
-            btn.disabled = true;
-            
-            try {
-                const r = await fetch('/scan');
-                const data = await r.json();
-                renderWiFiList(data.networks || []);
-                showToast('发现 ' + (data.count || 0) + ' 个网络');
-            } catch (e) {
-                showToast('扫描失败', 'error');
-            } finally {
-                btn.classList.remove('loading');
-                btn.disabled = false;
-            }
+
+    <!-- Connect Form Card -->
+    <div class="card" id="connectCard">
+        <div class="card-title">
+            <div class="icon mint">
+                <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/></svg>
+            </div>
+            连接网络
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">WiFi 名称 (SSID)</label>
+            <input type="text" class="form-input" id="ssidInput" placeholder="选择或输入 WiFi 名称" autocomplete="off">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">密码</label>
+            <div class="password-wrap">
+                <input type="password" class="form-input" id="passInput" placeholder="输入 WiFi 密码" autocomplete="off">
+                <button class="password-toggle" onclick="togglePassword()" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="eyeIcon">
+                        <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="connectBtn" onclick="connectWiFi()">
+            <span class="btn-text">连接</span>
+            <div class="spinner"></div>
+        </button>
+    </div>
+
+    <!-- Device Info Card -->
+    <div class="card">
+        <div class="card-title">
+            <div class="icon pixel">
+                <svg viewBox="0 0 24 24"><path d="M13 9h-2v2H9v2h2v2h2v-2h2v-2h-2V9zm1-7.06c1.09.53 2 1.84 2 3.06 0 1.68-1.36 3.15-2.99 3.15-1.99 0-3.51-1.82-2.99-3.89.33-1.28 1.51-2.18 2.82-2.3l1.16-.02zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+            </div>
+            设备信息
+        </div>
+
+        <div class="info-row"><span class="info-label">配网地址</span><span class="info-value">192.168.4.1</span></div>
+        <div class="info-row"><span class="info-label">固件版本</span><span class="info-value">v1.0.0</span></div>
+        <div class="info-row"><span class="info-label">芯片型号</span><span class="info-value">ESP32</span></div>
+        <div class="info-row"><span class="info-label">可用内存</span><span class="info-value" id="infoHeap">-</span></div>
+
+        <div class="btn-group">
+            <button class="btn btn-outline btn-sm" onclick="restartDevice()">重启设备</button>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span>NeoClock</span> · 像素时钟 · ESP32
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+    let selectedSSID = '';
+    let statusTimer = null;
+
+    // ===== WiFi 扫描 =====
+    async function scanWiFi() {
+        const btn = document.getElementById('scanBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+
+        try {
+            const r = await fetch('/scan');
+            const data = await r.json();
+            renderWiFiList(data.networks || []);
+            showToast('发现 ' + (data.count || 0) + ' 个网络', 'success');
+        } catch (e) {
+            showToast('扫描失败', 'error');
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
         }
-        
-        function renderWiFiList(networks) {
-            const list = document.getElementById('wifiList');
-            const placeholder = document.getElementById('scanPlaceholder');
-            
-            if (!networks.length) {
-                placeholder.style.display = 'block';
-                list.style.display = 'none';
-                return;
-            }
-            
-            placeholder.style.display = 'none';
-            list.style.display = 'block';
-            
-            // 按信号强度排序，去重
-            const seen = new Set();
-            const unique = networks.filter(n => {
-                if (!n.ssid || seen.has(n.ssid)) return false;
-                seen.add(n.ssid);
-                return true;
-            }).sort((a,b) => b.rssi - a.rssi);
-            
-            list.innerHTML = unique.map(n => {
-                const bars = getSignalBars(n.rssi);
-                return `<li class="wifi-item${n.ssid === selectedSSID ? ' selected' : ''}" onclick="selectWiFi('${escapeHtml(n.ssid)}', ${n.secure})">
+    }
+
+    function renderWiFiList(networks) {
+        const list = document.getElementById('wifiList');
+        const placeholder = document.getElementById('scanPlaceholder');
+
+        if (!networks.length) {
+            placeholder.style.display = 'block';
+            list.style.display = 'none';
+            return;
+        }
+
+        placeholder.style.display = 'none';
+        list.style.display = 'block';
+
+        // 按信号强度排序，去重
+        const seen = new Set();
+        const unique = networks.filter(n => {
+            if (!n.ssid || seen.has(n.ssid)) return false;
+            seen.add(n.ssid);
+            return true;
+        }).sort((a,b) => b.rssi - a.rssi);
+
+        list.innerHTML = unique.map(n => {
+            const bars = getSignalBars(n.rssi);
+            const lockIcon = n.secure
+                ? '<svg class="detail-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>'
+                : '<svg class="detail-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
+            return `<li class="wifi-item${n.ssid === selectedSSID ? ' selected' : ''}" onclick="selectWiFi('${escapeHtml(n.ssid)}', ${n.secure})">
                     <div class="wifi-icon">
                         <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
                     </div>
                     <div class="wifi-info">
                         <div class="wifi-name">${escapeHtml(n.ssid)}</div>
-                        <div class="wifi-detail">${n.secure ? '🔒 加密' : '🔓 开放'} · CH ${n.channel || '-'}</div>
+                        <div class="wifi-detail">${lockIcon} CH ${n.channel || '-'}</div>
                     </div>
                     <div class="wifi-signal">
                         <div class="bar ${bars >= 1 ? 'active' : ''}"></div>
@@ -1240,153 +1327,153 @@ const char *WebConfigManager_::getConfigPageHtml()
                         <div class="bar ${bars >= 4 ? 'active' : ''}"></div>
                     </div>
                 </li>`;
-            }).join('');
-        }
-        
-        function getSignalBars(rssi) {
-            if (rssi >= -50) return 4;
-            if (rssi >= -60) return 3;
-            if (rssi >= -70) return 2;
-            return 1;
-        }
-        
-        function selectWiFi(ssid, secure) {
-            selectedSSID = ssid;
-            document.getElementById('ssidInput').value = ssid;
-            document.getElementById('passInput').focus();
-            
-            // 更新选中状态
-            document.querySelectorAll('.wifi-item').forEach(el => el.classList.remove('selected'));
-            event.currentTarget.classList.add('selected');
-        }
-        
-        // ===== WiFi 连接 =====
-        async function connectWiFi() {
-            const ssid = document.getElementById('ssidInput').value.trim();
-            const pass = document.getElementById('passInput').value;
-            
-            if (!ssid) { showToast('请输入 WiFi 名称', 'error'); return; }
-            
-            const btn = document.getElementById('connectBtn');
-            btn.classList.add('loading');
-            btn.disabled = true;
-            
-            try {
-                const r = await fetch('/connect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ssid, password: pass })
-                });
-                const data = await r.json();
-                
-                if (data.ok) {
-                    showToast('正在连接 ' + ssid + '...', 'success');
-                    startStatusPolling();
-                } else {
-                    showToast(data.msg || '连接请求失败', 'error');
-                    btn.classList.remove('loading');
-                    btn.disabled = false;
-                }
-            } catch (e) {
-                showToast('请求失败，请重试', 'error');
+        }).join('');
+    }
+
+    function getSignalBars(rssi) {
+        if (rssi >= -50) return 4;
+        if (rssi >= -60) return 3;
+        if (rssi >= -70) return 2;
+        return 1;
+    }
+
+    function selectWiFi(ssid, secure) {
+        selectedSSID = ssid;
+        document.getElementById('ssidInput').value = ssid;
+        document.getElementById('passInput').focus();
+
+        // 更新选中状态
+        document.querySelectorAll('.wifi-item').forEach(el => el.classList.remove('selected'));
+        event.currentTarget.classList.add('selected');
+    }
+
+    // ===== WiFi 连接 =====
+    async function connectWiFi() {
+        const ssid = document.getElementById('ssidInput').value.trim();
+        const pass = document.getElementById('passInput').value;
+
+        if (!ssid) { showToast('请输入 WiFi 名称', 'error'); return; }
+
+        const btn = document.getElementById('connectBtn');
+        btn.classList.add('loading');
+        btn.disabled = true;
+
+        try {
+            const r = await fetch('/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ssid, password: pass })
+            });
+            const data = await r.json();
+
+            if (data.ok) {
+                showToast('正在连接 ' + ssid + '...', 'success');
+                startStatusPolling();
+            } else {
+                showToast(data.msg || '连接请求失败', 'error');
                 btn.classList.remove('loading');
                 btn.disabled = false;
             }
+        } catch (e) {
+            showToast('请求失败，请重试', 'error');
+            btn.classList.remove('loading');
+            btn.disabled = false;
         }
-        
-        // ===== 状态轮询 =====
-        function startStatusPolling() {
-            if (statusTimer) clearInterval(statusTimer);
-            
-            statusTimer = setInterval(async () => {
-                try {
-                    const r = await fetch('/status');
-                    const data = await r.json();
-                    updateStatusUI(data);
-                    
-                    // 连接成功或失败后停止轮询
-                    if (data.state === 2) { // CONNECTED
-                        clearInterval(statusTimer);
-                        statusTimer = null;
-                        const btn = document.getElementById('connectBtn');
-                        btn.classList.remove('loading');
-                        btn.disabled = false;
-                        showToast('✅ 连接成功！IP: ' + data.ip, 'success');
-                    } else if (data.state === 5) { // CONNECT_FAILED
-                        clearInterval(statusTimer);
-                        statusTimer = null;
-                        const btn = document.getElementById('connectBtn');
-                        btn.classList.remove('loading');
-                        btn.disabled = false;
-                        showToast('❌ ' + (data.message || '连接失败'), 'error');
-                    }
-                } catch (e) { /* ignore fetch errors during connecting */ }
-            }, 2000);
-        }
-        
-        function updateStatusUI(data) {
-            const dot = document.getElementById('statusDot');
-            const text = document.getElementById('statusText');
-            
-            dot.className = 'status-dot';
-            
-            switch (data.state) {
-                case 2: // CONNECTED
-                    dot.classList.add('connected');
-                    text.innerHTML = '<strong>已连接</strong> · ' + (data.ssid || '') + ' · ' + (data.ip || '');
-                    break;
-                case 1: // CONNECTING
-                    dot.classList.add('connecting');
-                    text.innerHTML = '<strong>正在连接</strong> · ' + (data.ssid || '');
-                    break;
-                case 5: // FAILED
-                    dot.classList.add('failed');
-                    text.innerHTML = '<strong>连接失败</strong> · ' + (data.message || '');
-                    break;
-                default:
-                    text.innerHTML = '<strong>配网模式</strong> · 等待配置';
-            }
-            
-            // 更新设备信息
-            if (data.freeHeap) {
-                document.getElementById('infoHeap').textContent = Math.round(data.freeHeap / 1024) + ' KB';
-            }
-        }
-        
-        // ===== 工具函数 =====
-        function togglePassword() {
-            const p = document.getElementById('passInput');
-            p.type = p.type === 'password' ? 'text' : 'password';
-        }
-        
-        function escapeHtml(s) {
-            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-        }
-        
-        function showToast(msg, type) {
-            const t = document.getElementById('toast');
-            t.textContent = msg;
-            t.className = 'toast' + (type ? ' ' + type : '');
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 3000);
-        }
-        
-        async function restartDevice() {
-            if (!confirm('确定要重启设备吗？')) return;
+    }
+
+    // ===== 状态轮询 =====
+    function startStatusPolling() {
+        if (statusTimer) clearInterval(statusTimer);
+
+        statusTimer = setInterval(async () => {
             try {
-                await fetch('/restart', { method: 'POST' });
-                showToast('设备正在重启...', 'success');
-            } catch (e) {
-                showToast('重启指令已发送');
-            }
+                const r = await fetch('/status');
+                const data = await r.json();
+                updateStatusUI(data);
+
+                // 连接成功或失败后停止轮询
+                if (data.state === 2) { // CONNECTED
+                    clearInterval(statusTimer);
+                    statusTimer = null;
+                    const btn = document.getElementById('connectBtn');
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    showToast('连接成功！IP: ' + data.ip, 'success');
+                } else if (data.state === 5) { // CONNECT_FAILED
+                    clearInterval(statusTimer);
+                    statusTimer = null;
+                    const btn = document.getElementById('connectBtn');
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    showToast('连接失败: ' + (data.message || ''), 'error');
+                }
+            } catch (e) { /* ignore fetch errors during connecting */ }
+        }, 2000);
+    }
+
+    function updateStatusUI(data) {
+        const dot = document.getElementById('statusDot');
+        const text = document.getElementById('statusText');
+
+        dot.className = 'status-dot';
+
+        switch (data.state) {
+            case 2: // CONNECTED
+                dot.classList.add('connected');
+                text.innerHTML = '<strong>已连接</strong> · ' + (data.ssid || '') + ' · ' + (data.ip || '');
+                break;
+            case 1: // CONNECTING
+                dot.classList.add('connecting');
+                text.innerHTML = '<strong>正在连接</strong> · ' + (data.ssid || '');
+                break;
+            case 5: // FAILED
+                dot.classList.add('failed');
+                text.innerHTML = '<strong>连接失败</strong> · ' + (data.message || '');
+                break;
+            default:
+                text.innerHTML = '<strong>配网模式</strong> · 等待配置';
         }
-        
-        // ===== 启动时自动扫描 & 获取状态 =====
-        window.addEventListener('load', () => {
-            scanWiFi();
-            fetch('/status').then(r => r.json()).then(updateStatusUI).catch(() => {});
-        });
-    </script>
+
+        // 更新设备信息
+        if (data.freeHeap) {
+            document.getElementById('infoHeap').textContent = Math.round(data.freeHeap / 1024) + ' KB';
+        }
+    }
+
+    // ===== 工具函数 =====
+    function togglePassword() {
+        const p = document.getElementById('passInput');
+        p.type = p.type === 'password' ? 'text' : 'password';
+    }
+
+    function escapeHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast' + (type ? ' ' + type : '');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    async function restartDevice() {
+        if (!confirm('确定要重启设备吗？')) return;
+        try {
+            await fetch('/restart', { method: 'POST' });
+            showToast('设备正在重启...', 'success');
+        } catch (e) {
+            showToast('重启指令已发送');
+        }
+    }
+
+    // ===== 启动时自动扫描 & 获取状态 =====
+    window.addEventListener('load', () => {
+        scanWiFi();
+        fetch('/status').then(r => r.json()).then(updateStatusUI).catch(() => {});
+    });
+</script>
 </body>
 </html>
 )rawliteral";

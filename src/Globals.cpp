@@ -38,10 +38,9 @@ bool SHOW_TEMP = true;
 bool SHOW_HUM = true;
 bool SHOW_WEATHER = true;
 bool SHOW_WIND = true;
-bool SHOW_SPECTRUM = true;
-// 默认位置在最后
-int SPECTRUM_POSITION = 6;
-uint16_t SPECTRUM_DURATION = 10000;
+
+// 音乐频谱
+bool SPECTRUM_ACTIVE = false;
 
 String CURRENT_APP = "";
 

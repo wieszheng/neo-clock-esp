@@ -18,8 +18,8 @@ uint16_t HEXtoColor(const char *hex);
 /// HEX 颜色字符串 → RGB888 (24位)
 uint32_t hexTo888(const char *hex);
 
-/// HSV → RGB565
-uint32_t hsvToRgb(uint8_t h, uint8_t s, uint8_t v);
+/// HSV → RGB565 (hue: 0-360, sat: 0-255, val: 0-255)
+uint16_t hsvToRgb(uint16_t hue, uint8_t sat, uint8_t val);
 
 /// 计算文字的像素宽度 (基于 AwtrixFont 字符宽度表)
 uint16_t getTextWidth(const char *text, bool ignoreUpperCase);

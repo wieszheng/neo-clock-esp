@@ -92,12 +92,45 @@ uint32_t hexTo888(const char *hex) {
   return ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
 }
 
-uint32_t hsvToRgb(uint8_t h, uint8_t s, uint8_t v) {
-  CHSV hsv(h, s, v);
-  CRGB rgb;
-  hsv2rgb_spectrum(hsv, rgb);
-  return ((uint16_t)(rgb.r & 0xF8) << 8) | ((uint16_t)(rgb.g & 0xFC) << 3) |
-         (rgb.b >> 3);
+uint16_t hsvToRgb(uint16_t hue, uint8_t sat, uint8_t val) {
+  uint8_t r, g, b;
+  uint8_t region, remainder, p, q, t;
+
+  if (sat == 0) {
+    r = g = b = val;
+  } else {
+    hue = hue % 360;
+    region = hue / 60;
+    remainder = (hue - (region * 60)) * 256 / 60;
+
+    p = (val * (255 - sat)) >> 8;
+    q = (val * (255 - ((sat * remainder) >> 8))) >> 8;
+    t = (val * (255 - ((sat * (255 - remainder)) >> 8))) >> 8;
+
+    switch (region) {
+    case 0:
+      r = val; g = t; b = p;
+      break;
+    case 1:
+      r = q; g = val; b = p;
+      break;
+    case 2:
+      r = p; g = val; b = t;
+      break;
+    case 3:
+      r = p; g = q; b = val;
+      break;
+    case 4:
+      r = t; g = p; b = val;
+      break;
+    default:
+      r = val; g = p; b = q;
+      break;
+    }
+  }
+
+  // RGB888转RGB565
+  return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3);
 }
 
 // ==================================================================

@@ -10,6 +10,7 @@
  */
 
 #include "PeripheryManager.h"
+#include "Apps.h"
 #include "DisplayManager.h"
 #include "Globals.h"
 #include "Logger.h"
@@ -32,13 +33,33 @@ EasyButton button_ok(BUTTON_OK_PIN, 35, false, false);
 void button_left_pressed()
 {
   LOG_DEBUG("[Button] 左按钮按下");
-  DisplayManager.leftButton();
+
+  if (SPECTRUM_ACTIVE)
+  {
+    // 频谱开启时切换模式
+    spectrumNextMode();
+    LOG_INFO("[Button] 频谱模式: %s", spectrumGetModeName().c_str());
+  }
+  else
+  {
+    DisplayManager.leftButton();
+  }
 }
 
 void button_right_pressed()
 {
   LOG_DEBUG("[Button] 右按钮按下");
-  DisplayManager.rightButton();
+
+  if (SPECTRUM_ACTIVE)
+  {
+    // 频谱开启时切换模式
+    spectrumNextMode();
+    LOG_INFO("[Button] 频谱模式: %s", spectrumGetModeName().c_str());
+  }
+  else
+  {
+    DisplayManager.rightButton();
+  }
 }
 
 void button_back_pressed()
@@ -50,7 +71,10 @@ void button_back_pressed()
 void button_ok_pressed()
 {
   LOG_DEBUG("[Button] 确认按钮按下");
-  DisplayManager.selectButton();
+
+  // 切换频谱显示开关
+  SPECTRUM_ACTIVE = !SPECTRUM_ACTIVE;
+  LOG_INFO("[Button] 频谱显示: %s", SPECTRUM_ACTIVE ? "开启" : "关闭");
 }
 
 // ==================================================================

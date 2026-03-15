@@ -86,13 +86,12 @@ extern bool SHOW_HUM;
 extern bool SHOW_WEATHER;
 /// 是否显示风速应用
 extern bool SHOW_WIND;
-/// 是否显示频谱应用
-extern bool SHOW_SPECTRUM;
 
 // ==================================================================
 // 当前应用状态
 // ==================================================================
-
+// 音乐频谱
+extern bool SPECTRUM_ACTIVE;
 /// 当前正在显示的应用名称
 extern String CURRENT_APP;
 

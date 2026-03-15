@@ -81,6 +81,7 @@ void DisplayManager_::setup()
   ui->setTargetFPS(MATRIX_FPS);
   ui->setTimePerApp(TIME_PER_APP);
   ui->setTimePerTransition(TIME_PER_TRANSITION);
+  ui->setOverlays(overlays, 1);
   ui->init();
 
   // 初始化 Liveview 模块
@@ -294,7 +295,7 @@ void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
 }
 
 // Gamma 校正系数 (2.0 是 LED 常用的典型值)
-#define GAMMA_VALUE 2.0
+#define GAMMA_VALUE 2.3
 
 void DisplayManager_::gammaCorrection()
 {

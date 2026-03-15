@@ -1,20 +1,13 @@
 /**
  * @file Apps.cpp
  * @brief 应用函数实现 — 时间、日期、天气等显示应用
- *
- * 本文件实现：
- *   - 时间/日期应用 (支持自定义格式和颜色)
- *   - 温度/湿度应用 (显示 DHT22 传感器数据)
- *   - 天气应用 (显示室外天气)
- *   - 风速应用 (显示风速数据)
- *   - 星期指示条绘制
- *   - 覆盖层函数 (预留扩展)
  */
 
 #include "Apps.h"
 #include "DisplayManager.h"
 #include "Globals.h"
 #include "Tools.h"
+#include <arduinoFFT.h>
 #include <time.h>
 
 // ==================================================================
@@ -23,18 +16,53 @@
 
 std::vector<AppData> Apps;
 
-// 覆盖层回调数组（按优先级从高到低）
-OverlayCallback overlays[] = {AlarmOverlay, TimerOverlay, NotifyOverlay,
-                              SpectrumOverlay};
+// 覆盖层回调数组
+OverlayCallback overlays[] = {SpectrumOverlay};
+
+// ==================================================================
+// FFT 变量 (频谱覆盖层专用)
+// ==================================================================
+
+#define FFT_SAMPLES 512
+#define SAMPLING_FREQ 10000
+#define SAMPLING_PERIOD_US (1000000UL / SAMPLING_FREQ)
+#define AMPLITUDE 30
+#define NUM_BANDS 32
+#define MIC_PIN 33
+#define SPECTRUM_MODES 5 // 模式数量
+
+static double vReal[FFT_SAMPLES];
+static double vImag[FFT_SAMPLES];
+static byte peak[NUM_BANDS] = {0};
+static int oldBarHeights[NUM_BANDS] = {0};
+static int bandValues[NUM_BANDS] = {0};
+static unsigned long peekDecayTime = 0;
+static int spectrumMode = 0; // 当前模式
+static int colorTime = 0;    // 颜色时间
+
+ArduinoFFT<double> FFT(vReal, vImag, FFT_SAMPLES, (double)SAMPLING_FREQ);
+
+// 频段映射表 (FFT索引范围)
+static const int bandRanges[][2] = {
+    {6, 9}, {9, 11}, {11, 13}, {13, 15}, {15, 17}, {17, 19}, {19, 21}, {21, 23}, {23, 25}, {25, 27}, {27, 29}, {29, 31}, {31, 33}, {33, 35}, {35, 38}, {38, 41}, {41, 44}, {44, 47}, {47, 50}, {50, 53}, {53, 56}, {56, 59}, {59, 62}, {62, 65}, {65, 68}, {68, 71}, {71, 74}, {74, 77}, {77, 80}, {80, 83}, {83, 87}, {87, 91}};
+
+// 切换频谱模式
+void spectrumNextMode()
+{
+  spectrumMode = (spectrumMode + 1) % SPECTRUM_MODES;
+}
+
+// 获取当前模式名称
+String spectrumGetModeName()
+{
+  const char *names[] = {"彩虹", "镜像", "渐变", "波浪", "中心"};
+  return names[spectrumMode];
+}
 
 // ==================================================================
 // 辅助函数
 // ==================================================================
 
-/**
- * @brief 应用应用文字颜色
- * @param colorHex HEX 格式颜色字符串 (如 "#FFFFFF")
- */
 static inline void applyAppColor(const String &colorHex)
 {
   if (colorHex.length() > 0)
@@ -47,19 +75,6 @@ static inline void applyAppColor(const String &colorHex)
   }
 }
 
-/**
- * @brief 绘制星期指示条
- * @param matrix 矩阵驱动指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param barStartX 条形起始 X 坐标
- * @param barWidth 单个条形宽度
- * @param timeInfo 时间信息指针
- * @param activeColorHex 激活颜色 (HEX 格式)
- * @param inactiveColorHex 未激活颜色 (HEX 格式)
- *
- * 在矩阵底部绘制 7 条短线表示星期几，当天对应高亮
- */
 static void drawWeekdayBar(FastLED_NeoMatrix *matrix, int16_t x, int16_t y,
                            int16_t barStartX, int8_t barWidth,
                            const struct tm *timeInfo,
@@ -72,7 +87,6 @@ static void drawWeekdayBar(FastLED_NeoMatrix *matrix, int16_t x, int16_t y,
   int dayOffset = START_ON_MONDAY ? 0 : 1;
   int today = (timeInfo->tm_wday + 6 + dayOffset) % 7;
 
-  // 预计算颜色 (循环外, 仅 2 次转换)
   uint16_t activeColor = HEXtoColor(activeColorHex.c_str());
   uint16_t inactiveColor = HEXtoColor(inactiveColorHex.c_str());
 
@@ -88,16 +102,6 @@ static void drawWeekdayBar(FastLED_NeoMatrix *matrix, int16_t x, int16_t y,
 // 时间应用
 // ==================================================================
 
-/**
- * @brief 时间应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- *
- * 显示当前时间，支持自定义格式、颜色和星期指示条
- */
 void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -107,12 +111,10 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
   time_t now = time(nullptr);
   struct tm *timeInfo = localtime(&now);
 
-  // 格式化时间
   char fmt[32];
   strncpy(fmt, TIME_FORMAT.c_str(), sizeof(fmt));
   fmt[sizeof(fmt) - 1] = '\0';
 
-  // 冒号闪烁 (短格式, 每秒切换)
   if (now % 2)
   {
     char *sep = strchr(fmt, ':');
@@ -127,7 +129,6 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
   char text[32];
   strftime(text, sizeof(text), fmt, timeInfo);
 
-  // 计算文字宽度 (用常量字符宽度估算, 足够精确)
   int textPixelWidth = strlen(text) * 4 - 1;
   bool showIcon = (textPixelWidth <= 22);
 
@@ -160,16 +161,6 @@ void TimeApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // 日期应用
 // ==================================================================
 
-/**
- * @brief 日期应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- *
- * 显示当前日期，支持自定义格式、颜色和星期指示条
- */
 void DateApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -216,16 +207,6 @@ void DateApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // 温度应用
 // ==================================================================
 
-/**
- * @brief 温度应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- *
- * 显示室内温度 (来自 DHT22 传感器)，带温度动画图标
- */
 void TempApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -235,7 +216,6 @@ void TempApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
   player->loadUser("fire_ball_29266.anim");
   player->play(x, y);
 
-  // [性能优化] snprintf + char[] 替代 String 拼接 (避免堆分配)
   char text[16];
   snprintf(text, sizeof(text), "%d°C", (int)std::round(INDOOR_TEMP));
 
@@ -249,16 +229,6 @@ void TempApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // 湿度应用
 // ==================================================================
 
-/**
- * @brief 湿度应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- *
- * 显示室内湿度 (来自 DHT22 传感器)，带蓝色火焰动画图标
- */
 void HumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
             int16_t y, FastFramePlayer *player)
 {
@@ -277,16 +247,6 @@ void HumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 // 天气应用
 // ==================================================================
 
-/**
- * @brief 天气应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- *
- * 显示室外天气 (来自 Weather API)，根据天气类型显示不同图标
- */
 void WeatherApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                 int16_t x, int16_t y, FastFramePlayer *player)
 {
@@ -330,16 +290,6 @@ void WeatherApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
 // 风速应用
 // ==================================================================
 
-/**
- * @brief 风速应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- *
- * 显示风速数据 (来自 Weather API)
- */
 void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player)
 {
@@ -360,61 +310,184 @@ void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 }
 
 // ==================================================================
-// 覆盖层实现
+// 频谱覆盖层 - 绘制模式
 // ==================================================================
 
-/**
- * @brief 频谱覆盖层
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param player 动画播放器
- *
- * 在所有应用上方显示音频频谱 (预留扩展)
- */
+// 模式0: 彩虹条形图
+static void drawSpectrumRainbow(FastLED_NeoMatrix *matrix, int barHeight, int band, int color)
+{
+  matrix->drawFastVLine((MATRIX_WIDTH - 1 - band), (8 - barHeight), barHeight, hsvToRgb(color, 255, 255));
+  matrix->drawPixel((MATRIX_WIDTH - 1 - band), 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+}
+
+// 模式1:
+static void drawSpectrumMirror(FastLED_NeoMatrix *matrix, int barHeight, int band)
+{
+  for (int y = 8; y >= 8 - barHeight; y--)
+  {
+    matrix->drawPixel((MATRIX_WIDTH - 1 - band), y, hsvToRgb(y * (255 / MATRIX_WIDTH / 5) + colorTime, 255, 255));
+  }
+}
+
+// 模式2: 渐变模式 (根据高度变色)
+static void drawSpectrumGradient(FastLED_NeoMatrix *matrix, int barHeight, int band)
+{
+  // 根据高度计算颜色: 蓝->绿->黄->红
+  uint16_t color;
+  if (barHeight <= 2)
+    color = 0x001F; // 蓝
+  else if (barHeight <= 4)
+    color = 0x07E0; // 绿
+  else if (barHeight <= 6)
+    color = 0xFFE0; // 黄
+  else
+    color = 0xF800; // 红
+
+  matrix->drawFastVLine((MATRIX_WIDTH - 1 - band), (8 - barHeight), barHeight, color);
+  matrix->drawPixel((MATRIX_WIDTH - 1 - band), 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+}
+
+// 模式3: 波浪模式 (圆点)
+static void drawSpectrumWave(FastLED_NeoMatrix *matrix, int barHeight, int band, int color)
+{
+  for (int h = 0; h < barHeight; h++)
+  {
+    int pixelY = 7 - h;
+    uint16_t dotColor = hsvToRgb(color + h * 20, 255, 255);
+    matrix->drawPixel((MATRIX_WIDTH - 1 - band), pixelY, dotColor);
+  }
+  matrix->drawPixel((MATRIX_WIDTH - 1 - band), 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+}
+
+// 模式4: 中心爆发模式
+static void drawSpectrumCenter(FastLED_NeoMatrix *matrix, int barHeight, int band)
+{
+  int centerX = MATRIX_WIDTH / 2;
+  int x = (band < 16) ? (centerX - 1 - (15 - band)) : (centerX + (band - 16));
+  uint16_t color = hsvToRgb((colorTime * 5 + band * 10) % 360, 255, 255);
+
+  for (int h = 0; h < barHeight; h++)
+  {
+    int pixelY = 7 - h;
+    matrix->drawPixel(x, pixelY, color);
+  }
+  matrix->drawPixel(x, 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+}
+
+// ==================================================================
+// 频谱覆盖层
+// ==================================================================
+
 void SpectrumOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                      FastFramePlayer *player)
 {
-  // 暂时为空，如果需要在所有界面显示频谱条可在此实现
+  if (!SPECTRUM_ACTIVE)
+    return;
+
+  matrix->fillScreen(0);
+
+  // 重置频段值
+  memset(bandValues, 0, sizeof(bandValues));
+
+  // 采样
+  unsigned long startTime;
+  for (int i = 0; i < FFT_SAMPLES; i++)
+  {
+    startTime = micros();
+    vReal[i] = (double)analogRead(MIC_PIN);
+    vImag[i] = 0.0;
+    while ((micros() - startTime) < SAMPLING_PERIOD_US)
+    {
+    }
+  }
+
+  // FFT 计算
+  FFT.dcRemoval();
+  FFT.windowing(FFT_WIN_TYP_HAMMING, FFT_FORWARD, false);
+  FFT.compute(FFT_FORWARD);
+  FFT.complexToMagnitude();
+
+  // 解析频段
+  for (int i = 2; i < FFT_SAMPLES / 2; i++)
+  {
+    if (vReal[i] < 300)
+      continue;
+
+    for (int band = 0; band < NUM_BANDS; band++)
+    {
+      if (i > bandRanges[band][0] && i <= bandRanges[band][1])
+      {
+        bandValues[band] += (int)vReal[i];
+        break;
+      }
+    }
+  }
+
+  // 绘制频谱条
+  int color = 0;
+  for (int band = 0; band < NUM_BANDS; band++)
+  {
+    int barHeight = bandValues[band] / AMPLITUDE;
+    if (barHeight > 8)
+      barHeight = 8;
+
+    barHeight = (oldBarHeights[band] + barHeight) / 2;
+
+    if (barHeight > peak[band])
+      peak[band] = min(8, barHeight);
+
+    // 根据模式绘制
+    switch (spectrumMode)
+    {
+    case 0:
+      drawSpectrumRainbow(matrix, barHeight, band, color);
+      break;
+    case 1:
+      drawSpectrumMirror(matrix, barHeight, band);
+      break;
+    case 2:
+      drawSpectrumGradient(matrix, barHeight, band);
+      break;
+    case 3:
+      drawSpectrumWave(matrix, barHeight, band, color);
+      break;
+    case 4:
+      drawSpectrumCenter(matrix, barHeight, band);
+      break;
+    }
+
+    color += 360 / (NUM_BANDS + 4);
+    oldBarHeights[band] = barHeight;
+  }
+
+  // 顶点衰减
+  if ((millis() - peekDecayTime) >= 70)
+  {
+    for (byte band = 0; band < NUM_BANDS; band++)
+    {
+      if (peak[band] > 0)
+        peak[band] -= 1;
+    }
+    colorTime++;
+    peekDecayTime = millis();
+  }
 }
 
-/**
- * @brief 闹钟覆盖层
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param player 动画播放器
- *
- * 闹钟触发时在所有应用上方显示提醒 (预留扩展)
- */
+// ==================================================================
+// 其他覆盖层 (预留)
+// ==================================================================
+
 void AlarmOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                   FastFramePlayer *player)
 {
-  // 桩代码
 }
 
-/**
- * @brief 定时器覆盖层
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param player 动画播放器
- *
- * 定时器触发时在所有应用上方显示倒计时 (预留扩展)
- */
 void TimerOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                   FastFramePlayer *player)
 {
-  // 桩代码
 }
 
-/**
- * @brief 通知覆盖层
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param player 动画播放器
- *
- * 显示系统通知消息 (预留扩展)
- */
 void NotifyOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                    FastFramePlayer *player)
 {
-  // 桩代码
 }

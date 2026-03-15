@@ -47,6 +47,17 @@ void SpectrumOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
                      FastFramePlayer *player);
 
 /**
+ * @brief 切换频谱显示模式
+ */
+void spectrumNextMode();
+
+/**
+ * @brief 获取当前频谱模式名称
+ * @return 模式名称字符串
+ */
+String spectrumGetModeName();
+
+/**
  * @brief 闹钟覆盖层
  * @param matrix 矩阵驱动指针
  * @param state UI 状态指针
@@ -133,17 +144,6 @@ void WeatherApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
  */
 void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
              int16_t y, FastFramePlayer *player);
-
-/**
- * @brief 频谱应用绘制函数
- * @param matrix 矩阵驱动指针
- * @param state UI 状态指针
- * @param x X 偏移量
- * @param y Y 偏移量
- * @param player 动画播放器
- */
-void SpectrumApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
-                 int16_t x, int16_t y, FastFramePlayer *player);
 
 // ==================================================================
 // 覆盖层回调数组

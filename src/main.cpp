@@ -110,7 +110,7 @@ void setup()
   Liveview.setCallback([](const char *data, size_t length)
                        {
     if (WebConfigManager.isConnected()) {
-      ServerManager.sendLiveviewData(data, length);
+      // ServerManager.sendLiveviewData(data, length);
     } });
 
   if (WebConfigManager.isAPMode())
@@ -131,18 +131,14 @@ void setup()
     LOG_INFO("[Main] IP 地址: %s", WiFi.localIP().toString().c_str());
 
     // 初始化 OTA 升级
-    ArduinoOTA.onStart([]() {
-      LOG_INFO("[OTA] 开始升级...");
-    });
-    ArduinoOTA.onEnd([]() {
-      LOG_INFO("[OTA] 升级完成，重启中...");
-    });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-      LOG_INFO("[OTA] 进度: %u%%", (progress / (total / 100)));
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-      LOG_ERROR("[OTA] 错误: %d", error);
-    });
+    ArduinoOTA.onStart([]()
+                       { LOG_INFO("[OTA] 开始升级..."); });
+    ArduinoOTA.onEnd([]()
+                     { LOG_INFO("[OTA] 升级完成，重启中..."); });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
+                          { LOG_INFO("[OTA] 进度: %u%%", (progress / (total / 100))); });
+    ArduinoOTA.onError([](ota_error_t error)
+                       { LOG_ERROR("[OTA] 错误: %d", error); });
     ArduinoOTA.begin();
     LOG_INFO("[Main] OTA 升级已启用");
   }

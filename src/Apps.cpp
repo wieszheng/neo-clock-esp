@@ -26,14 +26,16 @@ OverlayCallback overlays[] = {SpectrumOverlay};
 #define FFT_SAMPLES 512
 #define SAMPLING_FREQ 10000
 #define SAMPLING_PERIOD_US (1000000UL / SAMPLING_FREQ)
-#define AMPLITUDE 30
-#define NUM_BANDS 32
+#define AMPLITUDE 300 // 灵敏度控制 (越小越灵敏)
+#define NUM_BANDS 32  // 32条频谱，对应32列
+#define NOISE 220     // 噪声阈值 (越小越灵敏)
 #define MIC_PIN 33
-#define SPECTRUM_MODES 5 // 模式数量
+#define SPECTRUM_MODES 5 // 模式数量 (与参考代码一致)
 
 static double vReal[FFT_SAMPLES];
 static double vImag[FFT_SAMPLES];
 static byte peak[NUM_BANDS] = {0};
+static byte peakSpeed[NUM_BANDS] = {0}; // 峰值下落速度 (用于平滑下落)
 static int oldBarHeights[NUM_BANDS] = {0};
 static int bandValues[NUM_BANDS] = {0};
 static unsigned long peekDecayTime = 0;
@@ -42,7 +44,9 @@ static int colorTime = 0;    // 颜色时间
 
 ArduinoFFT<double> FFT(vReal, vImag, FFT_SAMPLES, (double)SAMPLING_FREQ);
 
-// 频段映射表 (FFT索引范围)
+// 频段映射表 (32 bands, 低频到高频分布)
+// 每个频段覆盖的FFT索引范围
+
 static const int bandRanges[][2] = {
     {6, 9}, {9, 11}, {11, 13}, {13, 15}, {15, 17}, {17, 19}, {19, 21}, {21, 23}, {23, 25}, {25, 27}, {27, 29}, {29, 31}, {31, 33}, {33, 35}, {35, 38}, {38, 41}, {41, 44}, {44, 47}, {47, 50}, {50, 53}, {53, 56}, {56, 59}, {59, 62}, {62, 65}, {65, 68}, {68, 71}, {71, 74}, {74, 77}, {77, 80}, {80, 83}, {83, 87}, {87, 91}};
 
@@ -52,10 +56,10 @@ void spectrumNextMode()
   spectrumMode = (spectrumMode + 1) % SPECTRUM_MODES;
 }
 
-// 获取当前模式名称
+// 获取当前模式名称 (与参考代码一致)
 String spectrumGetModeName()
 {
-  const char *names[] = {"彩虹", "镜像", "渐变", "波浪", "中心"};
+  const char *names[] = {"彩虹条", "镜像峰", "紫色条", "中心条", "变色条", "瀑布流"};
   return names[spectrumMode];
 }
 
@@ -310,68 +314,86 @@ void WindApp(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state, int16_t x,
 }
 
 // ==================================================================
-// 频谱覆盖层 - 绘制模式
+// 频谱覆盖层 - 绘制模式 (参考代码风格)
 // ==================================================================
 
-// 模式0: 彩虹条形图
-static void drawSpectrumRainbow(FastLED_NeoMatrix *matrix, int barHeight, int band, int color)
+// 模式0: 彩虹条 (rainbowBars)
+static void rainbowBars(FastLED_NeoMatrix *matrix, int band, int barHeight)
 {
-  matrix->drawFastVLine((MATRIX_WIDTH - 1 - band), (8 - barHeight), barHeight, hsvToRgb(color, 255, 255));
-  matrix->drawPixel((MATRIX_WIDTH - 1 - band), 8 - peak[band] - 1, matrix->Color(255, 255, 255));
-}
-
-// 模式1:
-static void drawSpectrumMirror(FastLED_NeoMatrix *matrix, int barHeight, int band)
-{
-  for (int y = 8; y >= 8 - barHeight; y--)
+  for (int y = 7; y >= 7 - barHeight; y--)
   {
-    matrix->drawPixel((MATRIX_WIDTH - 1 - band), y, hsvToRgb(y * (255 / MATRIX_WIDTH / 5) + colorTime, 255, 255));
+    matrix->drawPixel(band, y, hsvToRgb(band * 8, 255, 255));
   }
 }
 
-// 模式2: 渐变模式 (根据高度变色)
-static void drawSpectrumGradient(FastLED_NeoMatrix *matrix, int barHeight, int band)
+// 模式1: 镜像峰 (outrunPeak) - 只显示峰值
+static void outrunPeak(FastLED_NeoMatrix *matrix, int band)
 {
-  // 根据高度计算颜色: 蓝->绿->黄->红
-  uint16_t color;
-  if (barHeight <= 2)
-    color = 0x001F; // 蓝
-  else if (barHeight <= 4)
-    color = 0x07E0; // 绿
-  else if (barHeight <= 6)
-    color = 0xFFE0; // 黄
-  else
-    color = 0xF800; // 红
-
-  matrix->drawFastVLine((MATRIX_WIDTH - 1 - band), (8 - barHeight), barHeight, color);
-  matrix->drawPixel((MATRIX_WIDTH - 1 - band), 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+  int peakHeight = 7 - peak[band];
+  matrix->drawPixel(band, peakHeight, hsvToRgb(band * 8 + colorTime * 2, 255, 255));
 }
 
-// 模式3: 波浪模式 (圆点)
-static void drawSpectrumWave(FastLED_NeoMatrix *matrix, int barHeight, int band, int color)
+// 模式2: 紫色条 (purpleBars)
+static void purpleBars(FastLED_NeoMatrix *matrix, int band, int barHeight)
 {
-  for (int h = 0; h < barHeight; h++)
+  for (int y = 7; y >= 7 - barHeight; y--)
   {
-    int pixelY = 7 - h;
-    uint16_t dotColor = hsvToRgb(color + h * 20, 255, 255);
-    matrix->drawPixel((MATRIX_WIDTH - 1 - band), pixelY, dotColor);
+    // 紫色调: 根据y位置渐变
+    uint16_t color = hsvToRgb(180 + (7 - y) * 10, 255, 200);
+    matrix->drawPixel(band, y, color);
   }
-  matrix->drawPixel((MATRIX_WIDTH - 1 - band), 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+  // 峰值
+  matrix->drawPixel(band, 7 - peak[band], matrix->Color(255, 255, 255));
 }
 
-// 模式4: 中心爆发模式
-static void drawSpectrumCenter(FastLED_NeoMatrix *matrix, int barHeight, int band)
+// 模式3: 中心条 (centerBars) - 从中间向两边
+static void centerBars(FastLED_NeoMatrix *matrix, int band, int barHeight)
 {
-  int centerX = MATRIX_WIDTH / 2;
-  int x = (band < 16) ? (centerX - 1 - (15 - band)) : (centerX + (band - 16));
-  uint16_t color = hsvToRgb((colorTime * 5 + band * 10) % 360, 255, 255);
+  if (barHeight % 2 == 0)
+    barHeight--;
+  int yStart = (8 - barHeight) / 2;
 
-  for (int h = 0; h < barHeight; h++)
+  for (int y = yStart; y <= yStart + barHeight; y++)
   {
-    int pixelY = 7 - h;
-    matrix->drawPixel(x, pixelY, color);
+    // 热力图色调: 黄->红
+    int colorIdx = constrain((y - yStart) * 255 / (barHeight + 1), 0, 255);
+    uint16_t color = hsvToRgb(colorIdx / 2, 255, 200);
+    matrix->drawPixel(band, y, color);
   }
-  matrix->drawPixel(x, 8 - peak[band] - 1, matrix->Color(255, 255, 255));
+}
+
+// 模式4: 变色条 (changingBars)
+static void changingBars(FastLED_NeoMatrix *matrix, int band, int barHeight)
+{
+  for (int y = 7; y >= 7 - barHeight; y--)
+  {
+    // 颜色随y和时间变化
+    matrix->drawPixel(band, y, hsvToRgb((7 - y) * 32 + colorTime * 3, 255, 255));
+  }
+}
+
+// 模式5: 瀑布流 (waterfall) - 使用旧的oldBarHeights绘制
+static void waterfall(FastLED_NeoMatrix *matrix, int band)
+{
+  // 底部显示当前值
+  int intensity = constrain(bandValues[band] / 2000, 0, 160);
+  matrix->drawPixel(band, 7, hsvToRgb(160 - intensity, 255, 255));
+
+  // 上方显示历史值 (使用oldBarHeights作为历史)
+  int historyHeight = oldBarHeights[band] / 100;
+  if (historyHeight > 0)
+  {
+    for (int y = 6; y >= 7 - historyHeight && y >= 0; y--)
+    {
+      matrix->drawPixel(band, y, hsvToRgb(160 - (6 - y) * 10, 255, 200));
+    }
+  }
+}
+
+// 峰值绘制 (白色峰值)
+static void whitePeak(FastLED_NeoMatrix *matrix, int band)
+{
+  matrix->drawPixel(band, 7 - peak[band], matrix->Color(255, 255, 255));
 }
 
 // ==================================================================
@@ -384,7 +406,9 @@ void SpectrumOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
   if (!SPECTRUM_ACTIVE)
     return;
 
-  matrix->fillScreen(0);
+  // 瀑布流模式不需要清屏
+  if (spectrumMode != 5)
+    matrix->fillScreen(0);
 
   // 重置频段值
   memset(bandValues, 0, sizeof(bandValues));
@@ -407,67 +431,83 @@ void SpectrumOverlay(FastLED_NeoMatrix *matrix, MatrixDisplayUiState *state,
   FFT.compute(FFT_FORWARD);
   FFT.complexToMagnitude();
 
-  // 解析频段
+  // 解析频段 (参考代码的逻辑)
   for (int i = 2; i < FFT_SAMPLES / 2; i++)
   {
-    if (vReal[i] < 300)
-      continue;
-
-    for (int band = 0; band < NUM_BANDS; band++)
+    if (vReal[i] > NOISE)
     {
-      if (i > bandRanges[band][0] && i <= bandRanges[band][1])
+      for (int band = 0; band < NUM_BANDS; band++)
       {
-        bandValues[band] += (int)vReal[i];
-        break;
+        if (i >= bandRanges[band][0] && i < bandRanges[band][1])
+        {
+          bandValues[band] += (int)vReal[i];
+          break;
+        }
       }
     }
   }
 
-  // 绘制频谱条
-  int color = 0;
+  // 处理并绘制频谱条
   for (int band = 0; band < NUM_BANDS; band++)
   {
+    // 缩放条形高度
     int barHeight = bandValues[band] / AMPLITUDE;
     if (barHeight > 8)
       barHeight = 8;
 
+    // 帧间平滑
     barHeight = (oldBarHeights[band] + barHeight) / 2;
 
+    // 峰值上升
     if (barHeight > peak[band])
+    {
       peak[band] = min(8, barHeight);
+      peakSpeed[band] = 0; // 重置下落速度
+    }
+    // 峰值平滑下落 (使用加速度)
+    else if (peak[band] > 0)
+    {
+      peakSpeed[band]++;           // 速度递增 (加速度效果)
+      if (peakSpeed[band] >= 3)    // 速度累积到阈值时下落
+      {
+        peak[band]--;
+        peakSpeed[band] = 2;       // 保留部分速度，形成连续下落效果
+      }
+    }
 
-    // 根据模式绘制
+    // 根据模式绘制条形
     switch (spectrumMode)
     {
     case 0:
-      drawSpectrumRainbow(matrix, barHeight, band, color);
+      rainbowBars(matrix, band, barHeight);
+      whitePeak(matrix, band);
       break;
     case 1:
-      drawSpectrumMirror(matrix, barHeight, band);
+      // 无条形，只绘制峰值
+      outrunPeak(matrix, band);
       break;
     case 2:
-      drawSpectrumGradient(matrix, barHeight, band);
+      purpleBars(matrix, band, barHeight);
       break;
     case 3:
-      drawSpectrumWave(matrix, barHeight, band, color);
+      centerBars(matrix, band, barHeight);
       break;
     case 4:
-      drawSpectrumCenter(matrix, barHeight, band);
+      changingBars(matrix, band, barHeight);
+      whitePeak(matrix, band);
+      break;
+    case 5:
+      waterfall(matrix, band);
       break;
     }
 
-    color += 360 / (NUM_BANDS + 4);
+    // 保存旧高度用于下一帧
     oldBarHeights[band] = barHeight;
   }
 
-  // 顶点衰减
+  // 颜色时间更新 (每60ms)
   if ((millis() - peekDecayTime) >= 70)
   {
-    for (byte band = 0; band < NUM_BANDS; band++)
-    {
-      if (peak[band] > 0)
-        peak[band] -= 1;
-    }
     colorTime++;
     peekDecayTime = millis();
   }

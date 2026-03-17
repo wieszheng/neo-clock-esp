@@ -71,7 +71,7 @@ DisplayManager_ &DisplayManager = DisplayManager.getInstance();
  */
 void DisplayManager_::setup()
 {
-  FastLED.addLeds<NEOPIXEL, MATRIX_PIN>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
+  FastLED.addLeds<WS2812B, MATRIX_PIN, GRB>(leds, MATRIX_WIDTH * MATRIX_HEIGHT);
   setMatrixLayout(MATRIX_LAYOUT);
 
   // FastLED.setCorrection(COLOR_CORRECTION);
@@ -299,10 +299,10 @@ void DisplayManager_::printText(int16_t x, int16_t y, const char *text,
 
 void DisplayManager_::gammaCorrection()
 {
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    leds[i] = applyGamma_video(leds[i], GAMMA_VALUE);
-  }
+  // for (int i = 0; i < NUM_LEDS; i++)
+  // {
+  //   leds[i] = applyGamma_video(leds[i], GAMMA_VALUE);
+  // }
 }
 
 // ==================================================================
